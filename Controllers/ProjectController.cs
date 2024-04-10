@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using LatexRendererAPI.Services;
+// using LatexRendererAPI.Services;
 using LatexRendererAPI.Models.Domain;
 using Microsoft.AspNetCore.Authorization;
 using LatexRendererAPI.Models.DTO;
@@ -13,11 +13,11 @@ namespace LatexRendererAPI.Controllers
   [ApiController]
   public class ProjectController : ControllerBase
   {
-    private IFilesService filesService;
+    // private IFilesService filesService;
     private AppDbContext dbContext;
-    public ProjectController(IFilesService _filesService, AppDbContext _dbContext)
+    public ProjectController(AppDbContext _dbContext)
     {
-      filesService = _filesService;
+      // filesService = _filesService;
       dbContext = _dbContext;
     }
 
@@ -56,8 +56,8 @@ namespace LatexRendererAPI.Controllers
     {
       if (CheckPermission(projectId))
       {
-        var results = filesService.getFiles("projects\\" + projectId.ToString());
-        return Ok(results);
+        // var results = filesService.getFiles("projects\\" + projectId.ToString());
+        return Ok();
       }
       // var results = filesService.getFiles("test");
       return Unauthorized();
