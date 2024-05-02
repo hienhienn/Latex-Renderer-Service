@@ -6,7 +6,6 @@ using LatexRendererAPI.Models.Domain;
 using LatexRendererAPI.Models.DTO;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
 namespace LatexRendererAPI.Controllers
@@ -27,7 +26,7 @@ namespace LatexRendererAPI.Controllers
 
     private string GenerateJSONWebToken(UserModel userInfo)
     {
-      var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Key"]));
+      var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Key"] ?? ""));
       var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
       var claims = new[] {
@@ -64,7 +63,7 @@ namespace LatexRendererAPI.Controllers
       {
         var check = dbContext.Users.FirstOrDefault(x => x.Username == addUserRequestDto.Username);
         if (check != null) return BadRequest(new { title = "Username has been registered" });
-        var hashedPassword = passwordHasher.HashPassword("", addUserRequestDto.Password);
+        var hashedPassword = passwordHasher.HashPassword("", addUserRequestDto.Password ?? "");
         var newUser = new UserModel
         {
           Username = addUserRequestDto.Username,
@@ -99,10 +98,13 @@ namespace LatexRendererAPI.Controllers
         var checkUser = dbContext.Users.FirstOrDefault(x => x.Username == loginRequestDto.Username);
         if (checkUser == null)
         {
-          Console.WriteLine(1);
           return BadRequest(new { title = "Username or password is not correct!" });
         }
-        var checkPasswordResult = passwordHasher.VerifyHashedPassword("", checkUser.Password, loginRequestDto.Password);
+        var checkPasswordResult = passwordHasher.VerifyHashedPassword(
+          "",
+          checkUser.Password ?? "",
+          loginRequestDto.Password ?? ""
+        );
         if (checkPasswordResult == PasswordVerificationResult.Success)
         {
           var userGenJWT = new UserModel

@@ -1,5 +1,6 @@
 using System.Text;
 using LatexRendererAPI.Data;
+using LatexRendererAPI.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -41,6 +42,7 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 builder.Services.AddScoped<IPasswordHasher<string>, PasswordHasher<string>>();
+builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("AppConnectionString"))
 );
@@ -56,7 +58,9 @@ builder.Services
                 ValidateIssuerSigningKey = true,
                 ValidIssuer = builder.Configuration["Jwt:Issuer"],
                 ValidAudience = builder.Configuration["Jwt:Issuer"],
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
+                    builder.Configuration["Jwt:Key"] ?? ""
+                ))
             };
         }
     );
@@ -79,11 +83,11 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// if (app.Environment.IsDevelopment())
+// {
+app.UseSwagger();
+app.UseSwaggerUI();
+// }
 
 app.UseHttpsRedirection();
 app.UseCors(MyAllowSpecificOrigins);
@@ -92,7 +96,7 @@ app.UseAuthorization();
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(
-        Path.Combine(builder.Environment.ContentRootPath, "")),
+        Path.Combine(builder.Environment.ContentRootPath, builder.Configuration["AssetPath"] ?? "")),
     RequestPath = ""
 });
 app.MapControllers();

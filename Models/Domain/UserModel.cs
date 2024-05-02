@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace LatexRendererAPI.Models.Domain
 {
   public class UserModel

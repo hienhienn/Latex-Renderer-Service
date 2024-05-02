@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-// using LatexRendererAPI.Services;
 using LatexRendererAPI.Models.Domain;
 using Microsoft.AspNetCore.Authorization;
 using LatexRendererAPI.Models.DTO;
@@ -13,54 +12,10 @@ namespace LatexRendererAPI.Controllers
   [ApiController]
   public class ProjectController : ControllerBase
   {
-    // private IFilesService filesService;
     private AppDbContext dbContext;
     public ProjectController(AppDbContext _dbContext)
     {
-      // filesService = _filesService;
       dbContext = _dbContext;
-    }
-
-    private bool CheckPermission(Guid projectId)
-    {
-      var userId = User.Claims.First(claim => claim.Type == "UserId").Value;
-      var project = dbContext.Projects.First(x => x.Id == projectId && x.OwnerId.ToString() == userId);
-      if (project != null) return true;
-      return false;
-    }
-
-    // [HttpPost]
-    // public IActionResult CompilePDF()
-    // {
-    //   var processInfo = new ProcessStartInfo("cmd.exe", "/c " + "pdflatex main.tex")
-    //   {
-    //     UseShellExecute = false,
-    //     WorkingDirectory = Directory.GetCurrentDirectory() + "\\test",
-    //   };
-    //   var process = Process.Start(processInfo);
-    //   process?.WaitForExit();
-    //   string localFilePath = Directory.GetCurrentDirectory() + "\\test";
-    //   // var response = new HttpResponseMessage(HttpStatusCode.OK);
-    //   // response.Content = new StreamContent(new FileStream(localFilePath + "\\main.pdf", FileMode.Open, FileAccess.Read));
-    //   // response.Content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment");
-    //   // response.Content.Headers.ContentDisposition.FileName = "main.pdf";
-    //   // response.Content.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
-    //   // string imageUrl = _urlHelper.Content("~/test/main.pdf");
-    //   // return Ok(imageUrl);
-    //   return Ok();
-    // }
-
-    [HttpGet]
-    [Route("/files/{projectId:Guid}")]
-    public IActionResult GetFilesOfProject([FromRoute] Guid projectId)
-    {
-      if (CheckPermission(projectId))
-      {
-        // var results = filesService.getFiles("projects\\" + projectId.ToString());
-        return Ok();
-      }
-      // var results = filesService.getFiles("test");
-      return Unauthorized();
     }
 
     [HttpGet]
@@ -103,6 +58,18 @@ namespace LatexRendererAPI.Controllers
               .Skip(skipResults)
               .Take(query.PageSize)
               .Include(o => o.Owner)
+              .Select(p => new
+              {
+                p.Id,
+                p.Name,
+                p.LastModified,
+                p.LastestVersionId,
+                Owner = new
+                {
+                  Fullname = p.Owner != null ? p.Owner.Fullname : "",
+                  Username = p.Owner != null ? p.Owner.Username : "",
+                },
+              })
               .ToList(),
           total = projects.Count(),
         });
@@ -115,14 +82,35 @@ namespace LatexRendererAPI.Controllers
     {
       var currentUser = HttpContext.User;
       var userId = User.Claims.First(claim => claim.Type == "UserId").Value;
+
       var newProject = new ProjectModel
       {
         Name = createProjectRequestDto.Name,
-        LastModified = DateTime.Now,
         OwnerId = Guid.Parse(userId),
-        Owner = dbContext.Users.Find(Guid.Parse(userId))
+        LastModified = DateTime.Now
       };
       dbContext.Projects.Add(newProject);
+
+      var newVersion = new VersionModel
+      {
+        EditorId = Guid.Parse(userId),
+        ProjectId = newProject.Id,
+        ModifiedTime = DateTime.Now,
+      };
+      dbContext.Versions.Add(newVersion);
+
+      newProject.LastestVersionId = newVersion.Id;
+
+      var mainFile = new FileModel
+      {
+        Name = "main.tex",
+        Content = "",
+        Path = "main.tex",
+        Type = "tex",
+        VersionId = newVersion.Id
+      };
+      dbContext.Files.Add(mainFile);
+
       dbContext.SaveChanges();
       var projectsPath = Directory.GetCurrentDirectory() + "\\projects\\" + newProject.Id.ToString();
       Directory.CreateDirectory(projectsPath);
@@ -131,17 +119,16 @@ namespace LatexRendererAPI.Controllers
 
     [HttpDelete]
     [Route("{id:Guid}")]
-    public IActionResult DeleteProject([FromRoute] Guid id)
+    public async Task<IActionResult> DeleteProject([FromRoute] Guid id)
     {
-      var project = dbContext.Projects.Find(id);
+      var project = await dbContext.Projects.FindAsync(id);
       if (project == null)
       {
         return NotFound();
       }
       dbContext.Projects.Remove(project);
-      dbContext.SaveChanges();
+      await dbContext.SaveChangesAsync();
       return Ok();
     }
   }
-
 }
