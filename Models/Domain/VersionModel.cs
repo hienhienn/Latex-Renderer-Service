@@ -14,5 +14,6 @@ namespace LatexRendererAPI.Models.Domain
     [ForeignKey("ProjectId")]
     public ProjectModel? Project { get; set; }
     public DateTime? ModifiedTime { get; set; }
+    public bool IsMainVersion { get; set; } = true;
   }
 }

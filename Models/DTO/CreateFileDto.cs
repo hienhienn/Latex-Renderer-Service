@@ -8,6 +8,7 @@ namespace LatexRendererAPI.Models.DTO
     public required Guid VersionId { get; set; }
 
     [Required]
+    [MaxLength(200)]
     public required string Name { get; set; }
 
     [Required]

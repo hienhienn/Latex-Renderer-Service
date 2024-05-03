@@ -128,6 +128,21 @@ namespace LatexRendererAPI.Controllers
       return BadRequest(ModelState);
     }
 
+    [HttpDelete]
+    [Route("deleteFile/{id:Guid}")]
+    public IActionResult DeleteFile([FromRoute] Guid id)
+    {
+
+      var file = dbContext.Files.Find(id);
+      if (file == null)
+      {
+        return NotFound();
+      }
+      dbContext.Files.Remove(file);
+      dbContext.SaveChanges();
+
+      return Ok();
+    }
 
 
     // [HttpPost]
