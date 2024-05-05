@@ -101,6 +101,7 @@ namespace LatexRendererAPI.Controllers
         EditorId = Guid.Parse(userId),
         ProjectId = newProject.Id,
         ModifiedTime = DateTime.Now,
+        IsMainVersion = true
       };
       dbContext.Versions.Add(newVersion);
 
@@ -120,7 +121,8 @@ namespace LatexRendererAPI.Controllers
       var projectsPath = Path.Combine(
         Directory.GetCurrentDirectory(),
         config["AssetPath"] ?? "",
-        newProject.Id.ToString()
+        newProject.Id.ToString(),
+        "compile"
       );
       Directory.CreateDirectory(projectsPath);
       return CreatedAtAction(nameof(GetProjectById), new { id = newProject.Id }, newProject);
@@ -142,7 +144,7 @@ namespace LatexRendererAPI.Controllers
       );
       dbContext.Projects.Remove(project);
       await dbContext.SaveChangesAsync();
-      fileService.DeleteFiles(projectsPath);
+      fileService.DeleteFolder(projectsPath);
       return Ok();
     }
   }

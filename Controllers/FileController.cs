@@ -16,13 +16,12 @@ namespace LatexRendererAPI.Controllers
   {
     private AppDbContext dbContext;
     private IFileService fileService;
-
-
-    public FileController(AppDbContext _dbContext, IFileService _fileService)
+    private IConfiguration config;
+    public FileController(AppDbContext _dbContext, IFileService _fileService, IConfiguration _config)
     {
       dbContext = _dbContext;
       fileService = _fileService;
-
+      config = _config;
     }
 
     [HttpGet]
@@ -67,7 +66,7 @@ namespace LatexRendererAPI.Controllers
       var version = await dbContext.Versions.FirstOrDefaultAsync(p => p.Id == versionId);
       if (version == null) return NotFound();
       var projectId = version.ProjectId;
-      var filePath = await fileService.SaveFile(file, name, projectId);
+      var filePath = await fileService.SaveFile(file, name, projectId, path);
 
       var fileModel = new FileModel
       {
@@ -138,12 +137,21 @@ namespace LatexRendererAPI.Controllers
       {
         return NotFound();
       }
+      var version = dbContext.Versions.Find(file.VersionId);
+      if (version == null) return NotFound();
+      fileService.DeleteFile(file.Path, version.ProjectId);
+
+      var allFile = dbContext.Files.Where(f => f.Content.Equals(file.Content)).ToArray();
+      Console.WriteLine(allFile.Length);
+      if (allFile.Length == 1)
+      {
+        fileService.DeleteFileAllVersion(file.Content);
+      }
+
       dbContext.Files.Remove(file);
       dbContext.SaveChanges();
 
       return Ok();
     }
   }
-
-
 }
