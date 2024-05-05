@@ -143,14 +143,6 @@ namespace LatexRendererAPI.Controllers
 
       return Ok();
     }
-
-
-    // [HttpPost]
-    // [Route("createFile")]
-    // public IActionResult CreateFile([FromBody] CreateFileDto createFileDto)
-    // {
-    //   
-    // }
   }
 
 

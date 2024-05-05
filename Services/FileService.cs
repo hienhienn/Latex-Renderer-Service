@@ -1,15 +1,9 @@
-using System.Drawing;
-using LatexRendererAPI.Data;
-using LatexRendererAPI.Models.Domain;
-using LatexRendererAPI.Models.DTO;
-using Microsoft.EntityFrameworkCore;
-
 namespace LatexRendererAPI.Services
 {
   public interface IFileService
   {
-
     public Task<string> SaveFile(IFormFile file, string name, Guid projectId);
+    public void DeleteFiles(string path);
   }
 
   public class FileService : IFileService
@@ -33,6 +27,16 @@ namespace LatexRendererAPI.Services
         stream.Close();
       }
       return Path.Combine(projectId.ToString(), newFileName);
+    }
+
+    public void DeleteFiles(string path)
+    {
+      string[] files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
+      foreach (string file in files)
+      {
+        File.Delete(file);
+      }
+      Directory.Delete(path);
     }
   }
 }

@@ -9,6 +9,6 @@ namespace LatexRendererAPI.Models.Domain
     public required string Type { get; set; } // ["img", "tex"]
     public required string Content { get; set; }
     public VersionModel? Version { get; set; }
-
+    public string? ShaCode { get; set; }
   }
 }

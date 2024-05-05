@@ -12,9 +12,12 @@ namespace LatexRendererAPI.Controllers
   public class VersionController : ControllerBase
   {
     private AppDbContext dbContext;
-    public VersionController(AppDbContext _dbContext)
+    private IConfiguration config;
+
+    public VersionController(AppDbContext _dbContext, IConfiguration _config)
     {
       dbContext = _dbContext;
+      config = _config;
     }
 
     [HttpPost]
@@ -25,7 +28,7 @@ namespace LatexRendererAPI.Controllers
       if (version == null) return NotFound();
       var versionPath = Path.Combine(
           Directory.GetCurrentDirectory(),
-          "projects",
+          config["AssetPath"] ?? "",
           version.ProjectId.ToString(),
           version.Id.ToString()
         );

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using LatexRendererAPI.Models.DTO;
 using LatexRendererAPI.Data;
 using Microsoft.EntityFrameworkCore;
+using LatexRendererAPI.Services;
 
 namespace LatexRendererAPI.Controllers
 {
@@ -13,9 +14,13 @@ namespace LatexRendererAPI.Controllers
   public class ProjectController : ControllerBase
   {
     private AppDbContext dbContext;
-    public ProjectController(AppDbContext _dbContext)
+    private IConfiguration config;
+    private IFileService fileService;
+    public ProjectController(AppDbContext _dbContext, IConfiguration _config, IFileService _fileService)
     {
       dbContext = _dbContext;
+      config = _config;
+      fileService = _fileService;
     }
 
     [HttpGet]
@@ -112,7 +117,11 @@ namespace LatexRendererAPI.Controllers
       dbContext.Files.Add(mainFile);
 
       dbContext.SaveChanges();
-      var projectsPath = Directory.GetCurrentDirectory() + "\\projects\\" + newProject.Id.ToString();
+      var projectsPath = Path.Combine(
+        Directory.GetCurrentDirectory(),
+        config["AssetPath"] ?? "",
+        newProject.Id.ToString()
+      );
       Directory.CreateDirectory(projectsPath);
       return CreatedAtAction(nameof(GetProjectById), new { id = newProject.Id }, newProject);
     }
@@ -126,8 +135,14 @@ namespace LatexRendererAPI.Controllers
       {
         return NotFound();
       }
+      var projectsPath = Path.Combine(
+        Directory.GetCurrentDirectory(),
+        config["AssetPath"] ?? "",
+        project.Id.ToString()
+      );
       dbContext.Projects.Remove(project);
       await dbContext.SaveChangesAsync();
+      fileService.DeleteFiles(projectsPath);
       return Ok();
     }
   }
