@@ -79,10 +79,6 @@ namespace LatexRendererAPI.Services
 
     public void DeleteFileAllVersion(string path)
     {
-      // var pathSplit = path.Split('/');
-      // string[] pathStr = [localPath];
-      // string[] final = pathStr.Concat(pathSplit).ToArray();
-      // Console.WriteLine(Path.Combine(final));
       File.Delete(Path.Combine(localPath, path));
     }
   }

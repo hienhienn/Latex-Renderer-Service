@@ -13,5 +13,8 @@ namespace LatexRendererAPI.Models.DTO
 
     [Required]
     public required string Path { get; set; }
+
+    [Required]
+    public required string ShaCode { get; set; }
   }
 }

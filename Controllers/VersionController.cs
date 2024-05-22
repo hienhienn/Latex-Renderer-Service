@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using LatexRendererAPI.Data;
 using System.Diagnostics;
 using LatexRendererAPI.Models.DTO;
+using LatexRendererAPI.Models.Domain;
 
 namespace LatexRendererAPI.Controllers
 {
@@ -22,32 +23,39 @@ namespace LatexRendererAPI.Controllers
 
     [HttpPost]
     [Route("compile/{id:Guid}")]
-    public async Task<IActionResult> CompilePDF([FromRoute] Guid id, [FromBody] CompileProjectDto dto)
+    public async Task<IActionResult> CompilePDF([FromRoute] Guid id)
     {
       var version = dbContext.Versions.Find(id);
       if (version == null) return NotFound();
-      var versionPath = Path.Combine(
+      var compilePath = Path.Combine(
           Directory.GetCurrentDirectory(),
           config["AssetPath"] ?? "",
           version.ProjectId.ToString(),
-          version.Id.ToString()
+          config["CompilePath"] ?? ""
         );
-      Directory.CreateDirectory(versionPath);
-      foreach (FileDto f in dto.UpdateFiles ?? [])
+      Directory.CreateDirectory(compilePath);
+      var files = dbContext.Files.Where(f => f.Type == "tex" && f.IsCompile == false).ToList();
+      var tasks = new List<Task>(files.Count());
+      if (files.Count() > 0)
       {
-        using (StreamWriter outputFile = new StreamWriter(Path.Combine(versionPath, f.Path)))
+        for (var i = 0; i < files.Count(); i++)
         {
-          await outputFile.WriteAsync(f.Content);
+          using (StreamWriter outputFile = new StreamWriter(Path.Combine(compilePath, files[i].Path)))
+          {
+            tasks.Add(outputFile.WriteAsync(files[i].Content));
+          }
         }
+        await Task.WhenAll(tasks);
+
+        var processInfo = new ProcessStartInfo("cmd.exe", "/c " + "pdflatex main.tex")
+        {
+          UseShellExecute = false,
+          WorkingDirectory = compilePath,
+        };
+        var process = Process.Start(processInfo);
+        process?.WaitForExit();
       }
-      var processInfo = new ProcessStartInfo("cmd.exe", "/c " + "pdflatex main.tex")
-      {
-        UseShellExecute = false,
-        WorkingDirectory = versionPath,
-      };
-      var process = Process.Start(processInfo);
-      process?.WaitForExit();
-      return Ok($"/{version.ProjectId}/{version.Id}/main.pdf");
+      return Ok($"/{version.ProjectId}/{config["CompilePath"] ?? ""}/main.pdf");
       // string localFilePath = Directory.GetCurrentDirectory() + "\\test";
       // var response = new HttpResponseMessage(HttpStatusCode.OK);
       // response.Content = new StreamContent(new FileStream(localFilePath + "\\main.pdf", FileMode.Open, FileAccess.Read));

@@ -1,4 +1,5 @@
-
+using System.Security.Cryptography;
+using System.Text;
 using LatexRendererAPI.Data;
 using LatexRendererAPI.Models.Domain;
 using LatexRendererAPI.Models.DTO;
@@ -28,6 +29,8 @@ namespace LatexRendererAPI.Controllers
     [Route("getAll/{versionId:Guid}")]
     public IActionResult GetFilesVersion([FromRoute] Guid versionId)
     {
+      var version = dbContext.Versions.Find(versionId);
+      if (version == null) return NotFound();
       var files = dbContext.Files
       .Select(f => new
       {
@@ -39,14 +42,29 @@ namespace LatexRendererAPI.Controllers
       })
       .Where(f => f.VersionId == versionId)
       .OrderBy(f => f.Path);
-      return Ok(files);
+
+      return Ok(new
+      {
+        files,
+        shaCode = version.ShaCode
+      });
     }
 
     [HttpGet]
     [Route("{id:Guid}")]
     public IActionResult GetFileById([FromRoute] Guid id)
     {
-      var file = dbContext.Files.Find(id);
+      var file = dbContext.Files
+        .Select(f => new
+        {
+          f.Id,
+          f.Name,
+          f.Content,
+          f.Path,
+          f.ShaCode,
+          f.Type
+        })
+        .FirstOrDefault(f => f.Id == id);
       if (file == null)
       {
         return NotFound();
@@ -60,14 +78,21 @@ namespace LatexRendererAPI.Controllers
       [FromForm] IFormFile file,
       [FromForm] string name,
       [FromForm] Guid versionId,
-      [FromForm] string path
+      [FromForm] string path,
+      [FromForm] string? shaCode
     )
     {
       var version = await dbContext.Versions.FirstOrDefaultAsync(p => p.Id == versionId);
       if (version == null) return NotFound();
       var projectId = version.ProjectId;
-      var filePath = await fileService.SaveFile(file, name, projectId, path);
+      if (version.ShaCode != null && version.ShaCode != shaCode)
+        return BadRequest(new
+        {
+          message = "ShaCode did not match",
+          shaCodeError = true
+        });
 
+      var filePath = await fileService.SaveFile(file, name, projectId, path);
       var fileModel = new FileModel
       {
         Name = $"{name}{Path.GetExtension(file.FileName)}",
@@ -77,6 +102,28 @@ namespace LatexRendererAPI.Controllers
         Type = "img",
       };
       dbContext.Add(fileModel);
+
+      var files = dbContext.Files
+      .Where(f => f.VersionId == versionId)
+      .Select(f => new
+      {
+        f.Id,
+        f.Name,
+        f.Path
+      })
+      .ToList();
+      var filesStr = string.Join(", ", files.Select(item => $"Id: {item.Id}, Name: {item.Name}, Path: {item.Path}"));
+      Console.WriteLine(filesStr);
+      var newShaCode = ComputeSha256Hash(filesStr ?? "");
+      Console.WriteLine(shaCode ?? "", newShaCode);
+
+      var project = dbContext.Projects.Find(projectId);
+      if (project == null) return NotFound();
+      var time = DateTime.Now;
+      version.ShaCode = newShaCode;
+      project.LastModified = time;
+      version.ModifiedTime = time;
+
       await dbContext.SaveChangesAsync();
       return CreatedAtAction(nameof(GetFileById), new { id = fileModel.Id }, fileModel);
     }
@@ -89,6 +136,13 @@ namespace LatexRendererAPI.Controllers
       {
         var version = dbContext.Versions.FirstOrDefault(p => p.Id == createFileDto.VersionId);
         if (version == null) return NotFound();
+        if (version.ShaCode != null && version.ShaCode != createFileDto.ShaCode)
+          return BadRequest(new
+          {
+            message = "ShaCode did not match",
+            shaCodeError = true
+          });
+
         var projectId = version.ProjectId;
 
         var fileModel = new FileModel
@@ -98,8 +152,29 @@ namespace LatexRendererAPI.Controllers
           VersionId = createFileDto.VersionId,
           Path = createFileDto.Path,
           Type = "tex",
+          IsCompile = false
         };
         dbContext.Add(fileModel);
+
+        var files = dbContext.Files
+          .Where(f => f.VersionId == createFileDto.VersionId)
+          .Select(f => new
+          {
+            f.Id,
+            f.Name,
+            f.Path
+          })
+          .ToList();
+        var filesStr = string.Join(", ", files.Select(item => $"Id: {item.Id}, Name: {item.Name}, Path: {item.Path}"));
+        var newShaCode = ComputeSha256Hash(filesStr ?? "");
+
+        var project = dbContext.Projects.Find(projectId);
+        if (project == null) return NotFound();
+        var time = DateTime.Now;
+        version.ShaCode = newShaCode;
+        project.LastModified = time;
+        version.ModifiedTime = time;
+
         dbContext.SaveChanges();
         return CreatedAtAction(nameof(GetFileById), new { id = fileModel.Id }, fileModel);
       }
@@ -117,12 +192,34 @@ namespace LatexRendererAPI.Controllers
         {
           return NotFound();
         }
+        if (file.ShaCode != null && file.ShaCode != dto.ShaCode)
+          return BadRequest(new
+          {
+            message = "ShaCode did not match",
+            shaCodeError = true,
+            file.Content,
+            file.ShaCode,
+            file.Id,
+            file.Path,
+            file.Name,
+            file.Type
+          });
+
         if (dto.Content != null) file.Content = dto.Content;
-        if (dto.Name != null) file.Content = dto.Name;
-        if (dto.Path != null) file.Content = dto.Path;
+        if (dto.Name != null) file.Name = dto.Name;
+        if (dto.Path != null) file.Path = dto.Path;
+        if (file.Type == "tex") file.IsCompile = false;
+
+        var filesStr = $"Id: {file.Id}, Name: {file.Name}, Path: {file.Path}, Content{file.Content}";
+        var newShaCode = ComputeSha256Hash(filesStr ?? "");
+        file.ShaCode = newShaCode;
         dbContext.SaveChanges();
 
-        return Ok(file.Id);
+        return Ok(new
+        {
+          id = file.Id,
+          shaCode = newShaCode
+        });
       }
       return BadRequest(ModelState);
     }
@@ -139,19 +236,26 @@ namespace LatexRendererAPI.Controllers
       }
       var version = dbContext.Versions.Find(file.VersionId);
       if (version == null) return NotFound();
-      fileService.DeleteFile(file.Path, version.ProjectId);
-
-      var allFile = dbContext.Files.Where(f => f.Content.Equals(file.Content)).ToArray();
-      Console.WriteLine(allFile.Length);
-      if (allFile.Length == 1)
-      {
-        fileService.DeleteFileAllVersion(file.Content);
-      }
+      if (file.Type == "img") fileService.DeleteFile(file.Path, version.ProjectId);
 
       dbContext.Files.Remove(file);
       dbContext.SaveChanges();
 
       return Ok();
+    }
+    private string ComputeSha256Hash(string text)
+    {
+      using (SHA256 sha256 = SHA256.Create())
+      {
+        byte[] textBytes = Encoding.UTF8.GetBytes(text);
+        byte[] hashBytes = sha256.ComputeHash(textBytes);
+        StringBuilder sb = new StringBuilder();
+        foreach (byte b in hashBytes)
+        {
+          sb.Append(b.ToString("x2"));
+        }
+        return sb.ToString();
+      }
     }
   }
 }

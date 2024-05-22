@@ -11,5 +11,6 @@ namespace LatexRendererAPI.Models.DTO
 
     public string? Content { get; set; }
 
+    public string? ShaCode { get; set; }
   }
 }

@@ -7,7 +7,6 @@ namespace LatexRendererAPI.Models.Domain
     public Guid OwnerId { get; set; }
     public UserModel? Owner { get; set; }
     public DateTime? LastModified { get; set; }
-    public string? ShaCode { get; set; }
     public Guid? LastestVersionId { get; set; }
 
   }
