@@ -1,13 +1,13 @@
-using Microsoft.VisualBasic;
-
 namespace LatexRendererAPI.Services
 {
   public interface IFileService
   {
-    public Task<string> SaveFile(IFormFile file, string name, Guid projectId, string filePath);
+    public Task<string> SaveFile(IFormFile file, string name, string filePath);
     public void DeleteFolder(string path);
     public void DeleteFile(string path, Guid projectId);
     public void DeleteFileAllVersion(string path);
+    public string ParseFolderPath(string filePath, string code);
+    public void CopyFile(string source, string des);
   }
 
   public class FileService : IFileService
@@ -20,11 +20,11 @@ namespace LatexRendererAPI.Services
       config = _config;
       localPath = Path.Combine(Directory.GetCurrentDirectory(), config["AssetPath"] ?? "");
     }
-    public async Task<string> SaveFile(IFormFile file, string name, Guid projectId, string filePath)
+    public async Task<string> SaveFile(IFormFile file, string name, string filePath)
     {
       var fileExtension = Path.GetExtension(file.FileName);
       var newFileName = $"{name}_{DateTime.Now.Ticks}{fileExtension}";
-      var fullPath = Path.Combine(localPath, projectId.ToString(), newFileName);
+      var fullPath = Path.Combine(localPath, newFileName);
       using (FileStream stream = new FileStream(fullPath, FileMode.Create))
       {
         await file.CopyToAsync(stream);
@@ -34,7 +34,6 @@ namespace LatexRendererAPI.Services
       var pathSplit = filePath.Split('/');
       string[] pathStr = [
         localPath,
-        projectId.ToString(),
         config["CompilePath"] ?? ""
       ];
       string[] final = pathStr.Concat(pathSplit).ToArray();
@@ -48,7 +47,7 @@ namespace LatexRendererAPI.Services
         stream.Close();
       }
 
-      return Path.Combine(projectId.ToString(), newFileName);
+      return newFileName;
     }
 
     public void DeleteFolder(string path)
@@ -81,5 +80,21 @@ namespace LatexRendererAPI.Services
     {
       File.Delete(Path.Combine(localPath, path));
     }
+
+    public string ParseFolderPath(string filePath, string code) {
+      var pathSplit = filePath.Split('/');
+      string[] pathStr = [
+        localPath,
+        code,
+      ];
+      string[] final = pathStr.Concat(pathSplit).ToArray();
+      string[] folderPath = new string[final.Length - 1];
+      Array.Copy(final, folderPath, final.Length - 1);
+      return Path.Combine(folderPath);
+    }
+
+     public void CopyFile(string source, string des) {
+      File.Copy(source, des);
+     }
   }
 }

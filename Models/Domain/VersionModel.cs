@@ -16,5 +16,6 @@ namespace LatexRendererAPI.Models.Domain
     public DateTime? ModifiedTime { get; set; }
     public bool IsMainVersion { get; set; } = true;
     public string? ShaCode { get; set; }
+    public string? Description { get; set; }
   }
 }
