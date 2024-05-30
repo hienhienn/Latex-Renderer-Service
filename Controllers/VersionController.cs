@@ -4,6 +4,8 @@ using LatexRendererAPI.Data;
 using LatexRendererAPI.Models.DTO;
 using LatexRendererAPI.Models.Domain;
 using LatexRendererAPI.Services;
+using System.Diagnostics;
+using Microsoft.EntityFrameworkCore;
 
 namespace LatexRendererAPI.Controllers
 {
@@ -68,13 +70,13 @@ namespace LatexRendererAPI.Controllers
             message = "Main.tex file does not exists in this projects"
           });
         }
-        // var processInfo = new ProcessStartInfo("cmd.exe", "/c " + "pdflatex main.tex")
-        // {
-        //   UseShellExecute = false,
-        //   WorkingDirectory = folderPath,
-        // };
-        // var process = Process.Start(processInfo);
-        // process?.WaitForExit();
+        var processInfo = new ProcessStartInfo("cmd.exe", "/c " + "pdflatex main.tex")
+        {
+          UseShellExecute = false,
+          WorkingDirectory = folderPath,
+        };
+        var process = Process.Start(processInfo);
+        process?.WaitForExit();
         return Ok($"/{dto.Code}/main.pdf");
       } catch {
         return BadRequest();
@@ -94,27 +96,31 @@ namespace LatexRendererAPI.Controllers
 
     [HttpPost]
     [Route("saveVersion/{projectId:Guid}")]
-    public async Task<IActionResult> SaveVersion([FromRoute] Guid projectId, [FromBody] SaveVersionDto dto)
+    public IActionResult SaveVersion([FromRoute] Guid projectId, [FromBody] SaveVersionDto dto)
     {
+      var currentUser = HttpContext.User;
+      var userId = User.Claims.First(claim => claim.Type == "UserId").Value;
+
       var version = new VersionModel
       {
         ProjectId = projectId,
-        ModifiedTime = DateTime.Now
+        ModifiedTime = DateTime.Now,
+        EditorId = Guid.Parse(userId),
+        IsMainVersion = false,
+        Description = dto.Description
       };
       dbContext.Add(version);
-      var tasks = new List<Task>();
-      for (var i = 0; i < dto.Files.Count(); i++)
-      {
-        var newFile = new FileModel
-        {
-          Content = dto.Files[i].Content,
-          Type = dto.Files[i].Type,
-          Path = dto.Files[i].Path,
-          Name = dto.Files[i].Name,
-          VersionId = version.Id
-        };
-        await dbContext.Files.AddAsync(newFile);
-      }
+      Parallel.ForEach(dto.Files, f => {
+         var newFile = new FileModel
+          {
+            Content = f.Content,
+            Type = f.Type,
+            Path = f.Path,
+            Name = f.Name,
+            VersionId = version.Id
+          };
+        dbContext.Files.AddAsync(newFile);
+      });
       dbContext.SaveChanges();
       return Ok();
     }
@@ -123,9 +129,24 @@ namespace LatexRendererAPI.Controllers
     [Route("{id:Guid}")]
     public IActionResult getVersionById([FromRoute] Guid id)
     {
-      var version = dbContext.Versions.Find(id);
+      var version = dbContext.Versions
+        .Include(v => v.Project)
+        .FirstOrDefault(v => v.Id == id);
       if (version == null) return NotFound();
-      return Ok(version);
+      var listVersion = dbContext.Versions
+        .Where(v => v.ProjectId == version.ProjectId)
+        .Include(v => v.Editor)
+        .Select(v => new {
+          v.Id,
+          v.IsMainVersion,
+          v.Editor,
+          v.ModifiedTime,
+          v.Description
+        });
+      return Ok(new {
+        version = version,
+        listVersion = listVersion
+      });
     }
   }
 }

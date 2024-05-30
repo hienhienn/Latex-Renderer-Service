@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Net.WebSockets;
 using System.Text;
 using LatexRendererAPI.Data;
 using LatexRendererAPI.Services;
@@ -26,44 +28,48 @@ builder.Services.AddSwaggerGen(options =>
             Scheme = JwtBearerDefaults.AuthenticationScheme,
         }
     );
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement {
+    options.AddSecurityRequirement(
+        new OpenApiSecurityRequirement
         {
-            new OpenApiSecurityScheme {
-                Reference = new OpenApiReference {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = JwtBearerDefaults.AuthenticationScheme
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = JwtBearerDefaults.AuthenticationScheme
+                    },
+                    Scheme = "Oauth2",
+                    Name = JwtBearerDefaults.AuthenticationScheme,
+                    In = ParameterLocation.Header,
                 },
-                Scheme = "Oauth2",
-                Name = JwtBearerDefaults.AuthenticationScheme,
-                In = ParameterLocation.Header,
-            },
-            new List<string>()
+                new List<string>()
+            }
         }
-    });
+    );
 });
 builder.Services.AddScoped<IPasswordHasher<string>, PasswordHasher<string>>();
 builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("AppConnectionString"))
 );
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+builder
+    .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
         {
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                ValidAudience = builder.Configuration["Jwt:Issuer"],
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
-                    builder.Configuration["Jwt:Key"] ?? ""
-                ))
-            };
-        }
-    );
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Issuer"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? "")
+            )
+        };
+    });
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 builder.Services.AddCors(options =>
 {
@@ -71,14 +77,11 @@ builder.Services.AddCors(options =>
         name: MyAllowSpecificOrigins,
         policy =>
         {
-            policy
-                .AllowAnyOrigin()
-                .AllowAnyHeader()
-                .AllowAnyMethod();
+            policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
         }
     );
 });
-
+builder.Services.AddSingleton<WebSocketConnectionManager>();
 
 var app = builder.Build();
 
@@ -87,17 +90,27 @@ var app = builder.Build();
 // {
 app.UseSwagger();
 app.UseSwaggerUI();
+
 // }
 
 app.UseHttpsRedirection();
 app.UseCors(MyAllowSpecificOrigins);
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new PhysicalFileProvider(
-        Path.Combine(builder.Environment.ContentRootPath, builder.Configuration["AssetPath"] ?? "")),
-    RequestPath = ""
-});
+app.UseWebSockets();
+app.UseMiddleware<WebSocketMiddleware>();
+app.UseStaticFiles(
+    new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(
+            Path.Combine(
+                builder.Environment.ContentRootPath,
+                builder.Configuration["AssetPath"] ?? ""
+            )
+        ),
+        RequestPath = ""
+    }
+);
+
 app.MapControllers();
 app.Run();

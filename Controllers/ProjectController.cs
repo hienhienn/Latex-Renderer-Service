@@ -118,13 +118,6 @@ namespace LatexRendererAPI.Controllers
       dbContext.Files.Add(mainFile);
 
       dbContext.SaveChanges();
-      var projectsPath = Path.Combine(
-        Directory.GetCurrentDirectory(),
-        config["AssetPath"] ?? "",
-        newProject.Id.ToString(),
-        "compile"
-      );
-      Directory.CreateDirectory(projectsPath);
       return CreatedAtAction(nameof(GetProjectById), new { id = newProject.Id }, newProject);
     }
 
@@ -137,14 +130,8 @@ namespace LatexRendererAPI.Controllers
       {
         return NotFound();
       }
-      var projectsPath = Path.Combine(
-        Directory.GetCurrentDirectory(),
-        config["AssetPath"] ?? "",
-        project.Id.ToString()
-      );
       dbContext.Projects.Remove(project);
       await dbContext.SaveChangesAsync();
-      fileService.DeleteFolder(projectsPath);
       return Ok();
     }
   }

@@ -80,8 +80,7 @@ namespace LatexRendererAPI.Controllers
       [FromForm] IFormFile file,
       [FromForm] string name,
       [FromForm] Guid versionId,
-      [FromForm] string path,
-      [FromForm] string? shaCode
+      [FromForm] string path
     )
     {
       var version = await dbContext.Versions.FirstOrDefaultAsync(p => p.Id == versionId);
@@ -89,7 +88,9 @@ namespace LatexRendererAPI.Controllers
       var existFile = dbContext.Files.FirstOrDefault(p => p.Path == path);
       if (existFile != null)
       {
-        return BadRequest();
+        return BadRequest(new {
+            message = "A file with this name already exists!"
+        });
       }
 
       var filePath = await fileService.SaveFile(file, name, path);
@@ -121,7 +122,9 @@ namespace LatexRendererAPI.Controllers
         var existFile = dbContext.Files.FirstOrDefault(p => p.Path == createFileDto.Path);
         if (existFile != null)
         {
-          return BadRequest();
+          return BadRequest(new {
+            message = "A file with this name already exists!"
+          });
         }
 
         var projectId = version.ProjectId;
@@ -207,7 +210,9 @@ namespace LatexRendererAPI.Controllers
         var existFile = dbContext.Files.FirstOrDefault(p => p.Path == dto.Path);
         if (existFile != null)
         {
-          return BadRequest();
+          return BadRequest(new {
+            message = "A file with this name already exists!"
+          });
         }
 
         if (dto.Name != null) file.Name = dto.Name;
@@ -229,7 +234,7 @@ namespace LatexRendererAPI.Controllers
 
     [HttpDelete]
     [Route("deleteFile/{id:Guid}")]
-    public IActionResult DeleteFile([FromRoute] Guid id)
+    public IActionResult DeleteFile([FromRoute] Guid id, [FromQuery] string shaCode)
     {
 
       var file = dbContext.Files.Find(id);
@@ -237,9 +242,16 @@ namespace LatexRendererAPI.Controllers
       {
         return NotFound();
       }
+      if (file.Type == "tex" && file.ShaCode != null && file.ShaCode != shaCode) {
+        return BadRequest(new {
+            message = $"File {file.Path} has been change before delete!",
+            shaCodeError = true,
+            file.ShaCode,
+            file.Id
+          });
+      }
       var version = dbContext.Versions.Find(file.VersionId);
       if (version == null) return NotFound();
-      if (file.Type == "img") fileService.DeleteFile(file.Path, version.ProjectId);
 
       dbContext.Files.Remove(file);
       dbContext.SaveChanges();
