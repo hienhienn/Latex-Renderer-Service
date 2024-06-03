@@ -55,6 +55,20 @@ namespace LatexRendererAPI.Controllers
       return Ok(user);
     }
 
+    [HttpGet]
+    public IActionResult GetCurrentUser()
+    {
+      var currentUser = HttpContext.User;
+      var userId = User.Claims.First(claim => claim.Type == "UserId").Value;
+
+      var user = dbContext.Users.Find(Guid.Parse(userId));
+      if (user == null)
+      {
+        return NotFound();
+      }
+      return Ok(user);
+    }
+
     [HttpPost]
     [Route("signup")]
     public IActionResult SignUp([FromBody] AddUserRequestDto addUserRequestDto)

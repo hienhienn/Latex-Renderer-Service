@@ -45,11 +45,7 @@ namespace LatexRendererAPI.Controllers
           })
         .OrderBy(f => f.Path);
 
-      return Ok(new
-      {
-        files,
-        shaCode = version.ShaCode
-      });
+      return Ok(files);
     }
 
     [HttpGet]
