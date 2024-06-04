@@ -129,24 +129,42 @@ namespace LatexRendererAPI.Controllers
     [Route("{id:Guid}")]
     public IActionResult getVersionById([FromRoute] Guid id)
     {
-      var version = dbContext.Versions
-        .Include(v => v.Project)
-        .FirstOrDefault(v => v.Id == id);
+      var version = dbContext.Versions.FirstOrDefault(v => v.Id == id);
+
       if (version == null) return NotFound();
-      var listVersion = dbContext.Versions
-        .Where(v => v.ProjectId == version.ProjectId)
-        .Include(v => v.Editor)
-        .Select(v => new {
-          v.Id,
-          v.IsMainVersion,
-          v.Editor,
-          v.ModifiedTime,
-          v.Description
-        });
-      return Ok(new {
-        version = version,
-        listVersion = listVersion
-      });
+
+      var project = dbContext.Projects
+      .Include(p => p.Versions)
+      .Include(p => p.Owner)
+      .Select(p => new 
+        {
+          p.Name,
+          p.Id,
+          p.Versions,
+          Owner = new {
+            p.Owner.Fullname,
+            p.Owner.Username
+          },
+          IsMainVersion = version.IsMainVersion
+        }
+      )
+      .First(v => v.Id == version.ProjectId)
+      ;
+      // var listVersion = dbContext.Versions
+      //   .Where(v => v.ProjectId == version.ProjectId)
+      //   .Include(v => v.Editor)
+      //   .Select(v => new {
+      //     v.Id,
+      //     v.IsMainVersion,
+      //     v.Editor,
+      //     v.ModifiedTime,
+      //     v.Description
+      //   });
+      // return Ok(new {
+      //   version,
+      //   listVersion
+      // });
+      return Ok(project);
     }
   }
 }

@@ -25,23 +25,17 @@ namespace LatexRendererAPI.Data
                 .HasForeignKey(c => c.OwnerId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // modelBuilder
-            //     .Entity<ProjectModel>()
-            //     .HasOne(c => c.MainVersion)
-            //     .WithMany()
-            //     .HasForeignKey(c => c.MainVersionId)
-            //     .OnDelete(DeleteBehavior.NoAction);
-
             modelBuilder
                 .Entity<VersionModel>()
                 .HasOne(up => up.Project)
                 .WithMany(b => b.Versions)
                 .HasForeignKey(e => e.ProjectId);
 
-            // modelBuilder
-            //     .Entity<ProjectModel>()
-            //     .HasMany(up => up.Versions)
-            //     .WithOne(p => p.V);
+            modelBuilder
+                .Entity<ProjectModel>()
+                .HasMany(up => up.Versions)
+                .WithOne(b => b.Project)
+                .HasForeignKey(e => e.ProjectId);
 
             modelBuilder
                 .Entity<UserProject>()

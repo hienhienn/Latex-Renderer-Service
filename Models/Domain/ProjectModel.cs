@@ -10,7 +10,7 @@ namespace LatexRendererAPI.Models.Domain
 
     [ForeignKey("OwnerId")]
     public UserModel? Owner { get; set; }
-    // public required Guid MainVersionId { get; set; }
+    public required Guid MainVersionId { get; set; }
     // public VersionModel? MainVersion { get; set; }
     public bool IsPublic { get; set; }
     public string? PdfFile { get; set; }

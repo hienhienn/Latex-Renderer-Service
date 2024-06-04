@@ -42,8 +42,6 @@ namespace LatexRendererAPI.Controllers
       {
         var projects = dbContext.Projects.AsQueryable();
 
-        IQueryable? x = null;
-
         if (!string.IsNullOrWhiteSpace(query.Keyword))
           projects = projects.Where(e => e.Name.Contains(query.Keyword));
 
@@ -68,18 +66,14 @@ namespace LatexRendererAPI.Controllers
           }
         }
         var skipResults = (query.Page - 1) * query.PageSize;
-        if(x != null) {
-          return Ok(x);
-        }
         return Ok(new
         {
           list =
             projects
               .Skip(skipResults)
-              .Take(100)
+              .Take(query.PageSize)
               .Include(o => o.Owner)
               .Include(o => o.Versions)
-              // .Include(o => o.MainVersion)
               .Select(p => new
               {
                 p.Id,
@@ -90,8 +84,15 @@ namespace LatexRendererAPI.Controllers
                   Username = p.Owner != null ? p.Owner.Username : "",
                 },
                 p.IsPublic,
-                p.Versions
-                // p.MainVersion
+                p.MainVersionId,
+                MainVersion = dbContext.Versions
+                                .Where(v => v.Id == p.MainVersionId)
+                                .Include(p => p.Editor)
+                                .Select(p => new {
+                                  p.Editor,
+                                  p.ModifiedTime
+                                })
+                                .ToArray()
               })
               .ToList(),
           total = projects.Count(),
@@ -110,7 +111,7 @@ namespace LatexRendererAPI.Controllers
       {
         Name = createProjectRequestDto.Name,
         OwnerId = Guid.Parse(userId),
-        // MainVersionId = new Guid()
+        MainVersionId = new Guid()
       };
       dbContext.Projects.Add(newProject);
 
@@ -123,17 +124,17 @@ namespace LatexRendererAPI.Controllers
       };
       dbContext.Versions.Add(newVersion);
 
-      // newProject.MainVersionId = newVersion.Id;
+      newProject.MainVersionId = newVersion.Id;
 
-      // var mainFile = new FileModel
-      // {
-      //   Name = "main.tex",
-      //   Content = "",
-      //   Path = "main.tex",
-      //   Type = "tex",
-      //   VersionId = newVersion.Id
-      // };
-      // dbContext.Files.Add(mainFile);
+      var mainFile = new FileModel
+      {
+        Name = "main.tex",
+        Content = "",
+        Path = "main.tex",
+        Type = "tex",
+        VersionId = newVersion.Id
+      };
+      dbContext.Files.Add(mainFile);
 
       dbContext.SaveChanges();
       // return CreatedAtAction(nameof(GetProjectById), new { id = newProject.Id }, newProject);
