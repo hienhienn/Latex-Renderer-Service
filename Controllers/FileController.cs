@@ -140,7 +140,6 @@ namespace LatexRendererAPI.Controllers
         var project = dbContext.Projects.Find(projectId);
         if (project == null) return NotFound();
         var time = DateTime.Now;
-        project.LastModified = time;
         version.ModifiedTime = time;
 
         dbContext.SaveChanges();

@@ -10,15 +10,11 @@ namespace LatexRendererAPI.Models.Domain
 
     [ForeignKey("OwnerId")]
     public UserModel? Owner { get; set; }
-    public DateTime? LastModified { get; set; }
-    public Guid LastModifiedUserId { get; set; }
-
-    [ForeignKey("LastModifiedUserId")]
-    public UserModel? LastModifiedUser { get; set; }
-
-    public Guid? LastestVersionId { get; set; }
+    // public required Guid MainVersionId { get; set; }
+    // public VersionModel? MainVersion { get; set; }
     public bool IsPublic { get; set; }
     public string? PdfFile { get; set; }
     public ICollection<UserProject> UserProjects { get; set; } = [];
+    public ICollection<VersionModel> Versions { get; set; } = [];
   }
 }

@@ -51,35 +51,40 @@ namespace LatexRendererAPI.Controllers
             if (query.Sort.Equals("ascend")) projects = projects.OrderBy(x => x.Name);
             else projects = projects.OrderByDescending(x => x.Name);
           if (query.FieldSort == "lastModified")
-            if (query.Sort.Equals("ascend")) projects = projects.OrderBy(x => x.LastModified);
-            else projects = projects.OrderByDescending(x => x.LastModified);
+          {
+            DateTime now = DateTime.Now;
+            if (query.Sort.Equals("ascend"))
+              projects = projects
+                          .Include(p => p.Versions)
+                          .OrderBy(p => p.Id);
+            else 
+              projects = projects
+                          .Include(p => p.MainVersion)
+                          .OrderByDescending(p => p.MainVersion != null ? p.MainVersion.ModifiedTime : now);
+          }
         }
-
         var skipResults = (query.Page - 1) * query.PageSize;
         return Ok(new
         {
           list =
             projects
               .Skip(skipResults)
-              .Take(query.PageSize)
+              .Take(100)
               .Include(o => o.Owner)
+              .Include(o => o.Versions)
+              // .Include(o => o.MainVersion)
               .Select(p => new
               {
                 p.Id,
                 p.Name,
-                p.LastModified,
-                p.LastestVersionId,
                 Owner = new
                 {
                   Fullname = p.Owner != null ? p.Owner.Fullname : "",
                   Username = p.Owner != null ? p.Owner.Username : "",
                 },
-                LastModifiedUser = new
-                {
-                  Fullname = p.LastModifiedUser != null ? p.LastModifiedUser.Fullname : "",
-                  Username = p.LastModifiedUser != null ? p.LastModifiedUser.Username : "",
-                },
-                p.IsPublic
+                p.IsPublic,
+                p.Versions
+                // p.MainVersion
               })
               .ToList(),
           total = projects.Count(),
@@ -98,8 +103,7 @@ namespace LatexRendererAPI.Controllers
       {
         Name = createProjectRequestDto.Name,
         OwnerId = Guid.Parse(userId),
-        LastModified = DateTime.Now,
-        LastModifiedUserId = Guid.Parse(userId)
+        // MainVersionId = new Guid()
       };
       dbContext.Projects.Add(newProject);
 
@@ -112,20 +116,21 @@ namespace LatexRendererAPI.Controllers
       };
       dbContext.Versions.Add(newVersion);
 
-      newProject.LastestVersionId = newVersion.Id;
+      // newProject.MainVersionId = newVersion.Id;
 
-      var mainFile = new FileModel
-      {
-        Name = "main.tex",
-        Content = "",
-        Path = "main.tex",
-        Type = "tex",
-        VersionId = newVersion.Id
-      };
-      dbContext.Files.Add(mainFile);
+      // var mainFile = new FileModel
+      // {
+      //   Name = "main.tex",
+      //   Content = "",
+      //   Path = "main.tex",
+      //   Type = "tex",
+      //   VersionId = newVersion.Id
+      // };
+      // dbContext.Files.Add(mainFile);
 
       dbContext.SaveChanges();
-      return CreatedAtAction(nameof(GetProjectById), new { id = newProject.Id }, newProject);
+      // return CreatedAtAction(nameof(GetProjectById), new { id = newProject.Id }, newProject);
+      return Ok();
     }
 
     [HttpDelete]

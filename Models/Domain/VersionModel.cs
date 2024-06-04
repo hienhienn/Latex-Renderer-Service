@@ -6,7 +6,7 @@ namespace LatexRendererAPI.Models.Domain
   {
     public Guid Id { get; set; }
     public Guid EditorId { get; set; }
-    public required Guid ProjectId { get; set; }
+    public Guid ProjectId { get; set; }
 
     [ForeignKey("EditorId")]
     public UserModel? Editor { get; set; }
@@ -14,7 +14,7 @@ namespace LatexRendererAPI.Models.Domain
     [ForeignKey("ProjectId")]
     public ProjectModel? Project { get; set; }
     
-    public DateTime? ModifiedTime { get; set; }
+    public required DateTime ModifiedTime { get; set; } = DateTime.Now;
     public bool IsMainVersion { get; set; }
     public string? Description { get; set; }
     public string Mode { get; set; } = "private"; //private - public
