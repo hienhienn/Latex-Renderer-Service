@@ -42,6 +42,8 @@ namespace LatexRendererAPI.Controllers
       {
         var projects = dbContext.Projects.AsQueryable();
 
+        IQueryable? x = null;
+
         if (!string.IsNullOrWhiteSpace(query.Keyword))
           projects = projects.Where(e => e.Name.Contains(query.Keyword));
 
@@ -52,18 +54,23 @@ namespace LatexRendererAPI.Controllers
             else projects = projects.OrderByDescending(x => x.Name);
           if (query.FieldSort == "lastModified")
           {
-            DateTime now = DateTime.Now;
             if (query.Sort.Equals("ascend"))
               projects = projects
+                          .Where(p => p.Versions != null)
                           .Include(p => p.Versions)
-                          .OrderBy(p => p.Id);
+                          .OrderBy(p => p.Versions.First(x => x.IsMainVersion).ModifiedTime);
+
             else 
               projects = projects
-                          .Include(p => p.MainVersion)
-                          .OrderByDescending(p => p.MainVersion != null ? p.MainVersion.ModifiedTime : now);
+                         .Where(p => p.Versions != null)
+                          .Include(p => p.Versions)
+                          .OrderByDescending(p => p.Versions.First(x => x.IsMainVersion).ModifiedTime);
           }
         }
         var skipResults = (query.Page - 1) * query.PageSize;
+        if(x != null) {
+          return Ok(x);
+        }
         return Ok(new
         {
           list =
