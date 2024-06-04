@@ -74,6 +74,12 @@ namespace LatexRendererAPI.Controllers
                   Fullname = p.Owner != null ? p.Owner.Fullname : "",
                   Username = p.Owner != null ? p.Owner.Username : "",
                 },
+                LastModifiedUser = new
+                {
+                  Fullname = p.LastModifiedUser != null ? p.LastModifiedUser.Fullname : "",
+                  Username = p.LastModifiedUser != null ? p.LastModifiedUser.Username : "",
+                },
+                p.IsPublic
               })
               .ToList(),
           total = projects.Count(),
@@ -92,7 +98,8 @@ namespace LatexRendererAPI.Controllers
       {
         Name = createProjectRequestDto.Name,
         OwnerId = Guid.Parse(userId),
-        LastModified = DateTime.Now
+        LastModified = DateTime.Now,
+        LastModifiedUserId = Guid.Parse(userId)
       };
       dbContext.Projects.Add(newProject);
 

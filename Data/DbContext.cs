@@ -29,7 +29,7 @@ namespace LatexRendererAPI.Data
                 .Entity<ProjectModel>()
                 .HasOne(c => c.LastModifiedUser)
                 .WithMany()
-                .HasForeignKey(c => c.LastestVersionId)
+                .HasForeignKey(c => c.LastModifiedUserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
             modelBuilder
