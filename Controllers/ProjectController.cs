@@ -56,7 +56,7 @@ namespace LatexRendererAPI.Controllers
 
             else 
               projects = projects
-                         .Where(p => p.Versions != null)
+                          .Where(p => p.Versions != null)
                           .Include(p => p.Versions)
                           .OrderByDescending(p => p.Versions.First(x => x.IsMainVersion).ModifiedTime);
           }
@@ -78,18 +78,15 @@ namespace LatexRendererAPI.Controllers
                 p.MainVersionId,
                 UserProjects = p.UserProjects.Select(up => new 
                 {
-                  up.Role,  
                   up.Editor.Fullname,
                   up.Editor.Username
                 }),
-                MainVersion = dbContext.Versions
-                              .Where(v => v.Id == p.MainVersionId)
-                              .Include(p => p.Editor)
-                              .Select(p => new {
-                                p.Editor,
-                                p.ModifiedTime
-                              })
-                              .ToList()
+                p.Versions.First(x => x.IsMainVersion).ModifiedTime,
+                Editor = new
+                {
+                  p.Versions.First(x => x.IsMainVersion).Editor.Fullname,
+                  p.Versions.First(x => x.IsMainVersion).Editor.Username
+                }
               })
               .ToList(),
           total = projects.Count(),
@@ -157,6 +154,24 @@ namespace LatexRendererAPI.Controllers
       dbContext.Projects.Remove(project);
       await dbContext.SaveChangesAsync();
       return Ok();
+    }
+
+    [HttpPut]
+    [Route("{id:Guid}")]
+    public IActionResult UpdateProject([FromRoute] Guid id, [FromBody] UpdateProjectDto dto)
+    {
+      var project = dbContext.Projects.Find(id);
+      if (project == null)
+      {
+        return NotFound();
+      }
+      if (dto.Name != null && dto.Name != "") project.Name = dto.Name;
+      if (dto.PdfFile != null) project.PdfFile = dto.PdfFile;
+      if (dto.IsPublic != null) project.IsPublic = dto.IsPublic;
+
+      dbContext.SaveChanges();
+
+      return Ok(dto);
     }
   }
 }

@@ -140,8 +140,21 @@ namespace LatexRendererAPI.Controllers
         {
           p.Name,
           p.Id,
-          p.Versions,
-          IsMainVersion = version.IsMainVersion
+          Versions = p.Versions.Select(v => new 
+          {
+            v.Editor.Fullname,
+            v.Editor.Username,
+            v.IsMainVersion,
+            v.ModifiedTime
+          }),
+          p.IsPublic,
+          UserProjects = p.UserProjects.Select(up => new 
+          {
+            up.Role,
+            up.Editor.Fullname,
+            up.Editor.Username
+          }),
+          version.IsMainVersion
         }
       )
       .First(v => v.Id == version.ProjectId)
