@@ -137,8 +137,8 @@ namespace LatexRendererAPI.Controllers
       dbContext.Files.Add(mainFile);
 
       dbContext.SaveChanges();
-      // return CreatedAtAction(nameof(GetProjectById), new { id = newProject.Id }, newProject);
-      return Ok();
+      return CreatedAtAction(nameof(GetProjectById), new { id = newProject.Id }, newProject);
+      // return Ok();
     }
 
     [HttpDelete]

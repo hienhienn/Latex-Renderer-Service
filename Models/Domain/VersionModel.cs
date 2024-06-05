@@ -17,6 +17,5 @@ namespace LatexRendererAPI.Models.Domain
     public required DateTime ModifiedTime { get; set; } = DateTime.Now;
     public bool IsMainVersion { get; set; }
     public string? Description { get; set; }
-    public string Mode { get; set; } = "private"; //private - public
     }
 }
