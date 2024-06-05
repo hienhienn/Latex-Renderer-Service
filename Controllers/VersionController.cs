@@ -135,16 +135,12 @@ namespace LatexRendererAPI.Controllers
 
       var project = dbContext.Projects
       .Include(p => p.Versions)
-      .Include(p => p.Owner)
+      // .Include(p => p.Owner)
       .Select(p => new 
         {
           p.Name,
           p.Id,
           p.Versions,
-          Owner = new {
-            p.Owner.Fullname,
-            p.Owner.Username
-          },
           IsMainVersion = version.IsMainVersion
         }
       )

@@ -9,7 +9,6 @@ namespace LatexRendererAPI.Data
             : base(dbContextOptions) { }
 
         public DbSet<UserModel> Users { get; set; }
-
         public DbSet<ProjectModel> Projects { get; set; }
         public DbSet<VersionModel> Versions { get; set; }
         public DbSet<FileModel> Files { get; set; }
@@ -18,13 +17,6 @@ namespace LatexRendererAPI.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder
-                .Entity<ProjectModel>()
-                .HasOne(c => c.Owner)
-                .WithMany()
-                .HasForeignKey(c => c.OwnerId)
-                .OnDelete(DeleteBehavior.NoAction);
-
             modelBuilder
                 .Entity<VersionModel>()
                 .HasOne(up => up.Project)
@@ -37,11 +29,11 @@ namespace LatexRendererAPI.Data
                 .WithOne(b => b.Project)
                 .HasForeignKey(e => e.ProjectId);
 
-            modelBuilder
-                .Entity<UserProject>()
-                .HasOne(up => up.Editor)
-                .WithMany(e => e.UserProjects)
-                .HasForeignKey(up => up.EditorId);
+            // modelBuilder
+            //     .Entity<UserProject>()
+            //     .HasOne(up => up.Editor)
+            //     .WithMany(e => e.UserProjects)
+            //     .HasForeignKey(up => up.EditorId);
 
             modelBuilder
                 .Entity<UserProject>()

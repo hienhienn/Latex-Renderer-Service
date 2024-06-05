@@ -14,13 +14,9 @@ namespace LatexRendererAPI.Controllers
   public class ProjectController : ControllerBase
   {
     private AppDbContext dbContext;
-    private IConfiguration config;
-    private IFileService fileService;
-    public ProjectController(AppDbContext _dbContext, IConfiguration _config, IFileService _fileService)
+    public ProjectController(AppDbContext _dbContext)
     {
       dbContext = _dbContext;
-      config = _config;
-      fileService = _fileService;
     }
 
     [HttpGet]
@@ -72,27 +68,28 @@ namespace LatexRendererAPI.Controllers
             projects
               .Skip(skipResults)
               .Take(query.PageSize)
-              .Include(o => o.Owner)
               .Include(o => o.Versions)
+              .Include(o => o.UserProjects)
               .Select(p => new
               {
                 p.Id,
                 p.Name,
-                Owner = new
-                {
-                  Fullname = p.Owner != null ? p.Owner.Fullname : "",
-                  Username = p.Owner != null ? p.Owner.Username : "",
-                },
                 p.IsPublic,
                 p.MainVersionId,
+                UserProjects = p.UserProjects.Select(up => new 
+                {
+                  up.Role,  
+                  up.Editor.Fullname,
+                  up.Editor.Username
+                }),
                 MainVersion = dbContext.Versions
-                                .Where(v => v.Id == p.MainVersionId)
-                                .Include(p => p.Editor)
-                                .Select(p => new {
-                                  p.Editor,
-                                  p.ModifiedTime
-                                })
-                                .ToArray()
+                              .Where(v => v.Id == p.MainVersionId)
+                              .Include(p => p.Editor)
+                              .Select(p => new {
+                                p.Editor,
+                                p.ModifiedTime
+                              })
+                              .ToList()
               })
               .ToList(),
           total = projects.Count(),
@@ -110,10 +107,17 @@ namespace LatexRendererAPI.Controllers
       var newProject = new ProjectModel
       {
         Name = createProjectRequestDto.Name,
-        OwnerId = Guid.Parse(userId),
         MainVersionId = new Guid()
       };
       dbContext.Projects.Add(newProject);
+
+      var newUserProject = new UserProject 
+      {
+        ProjectId = newProject.Id,
+        EditorId = Guid.Parse(userId),
+        Role = "owner"
+      };
+      dbContext.UserProjects.Add(newUserProject);
 
       var newVersion = new VersionModel
       {
@@ -137,8 +141,8 @@ namespace LatexRendererAPI.Controllers
       dbContext.Files.Add(mainFile);
 
       dbContext.SaveChanges();
-      return CreatedAtAction(nameof(GetProjectById), new { id = newProject.Id }, newProject);
-      // return Ok();
+      // return Ok(newProject);
+      return Ok();
     }
 
     [HttpDelete]
