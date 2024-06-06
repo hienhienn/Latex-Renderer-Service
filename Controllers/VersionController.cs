@@ -145,7 +145,8 @@ namespace LatexRendererAPI.Controllers
             v.Editor.Fullname,
             v.Editor.Username,
             v.IsMainVersion,
-            v.ModifiedTime
+            v.ModifiedTime,
+            v.Description
           }),
           p.IsPublic,
           UserProjects = p.UserProjects.Select(up => new 
