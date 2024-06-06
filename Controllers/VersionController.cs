@@ -152,7 +152,9 @@ namespace LatexRendererAPI.Controllers
           {
             up.Role,
             up.Editor.Fullname,
-            up.Editor.Username
+            up.Editor.Username,
+            up.EditorId,
+            up.Id
           }),
           version.IsMainVersion
         }

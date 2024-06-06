@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Authorization;
 using LatexRendererAPI.Models.DTO;
 using LatexRendererAPI.Data;
 using Microsoft.EntityFrameworkCore;
-using LatexRendererAPI.Services;
 
 namespace LatexRendererAPI.Controllers
 {
@@ -38,6 +37,22 @@ namespace LatexRendererAPI.Controllers
       {
         var projects = dbContext.Projects.AsQueryable();
 
+        var currentUser = HttpContext.User;
+        var userId = User.Claims.First(claim => claim.Type == "UserId").Value;
+
+        if(query.Category == "all") 
+          projects = projects
+          .Include(p => p.UserProjects)
+          .Where(p => p.UserProjects.First(up => up.EditorId == Guid.Parse(userId)) != null);
+        else if(query.Category == "yours")
+          projects = projects
+            .Include(p => p.UserProjects)
+            .Where(p => p.UserProjects.First(up => up.EditorId == Guid.Parse(userId) && up.Role == "owner") != null);
+        else if(query.Category == "shared")
+          projects = projects
+            .Include(p => p.UserProjects)
+            .Where(p => p.UserProjects.First(up => up.EditorId == Guid.Parse(userId) && up.Role != "owner") != null);
+
         if (!string.IsNullOrWhiteSpace(query.Keyword))
           projects = projects.Where(e => e.Name.Contains(query.Keyword));
 
@@ -46,7 +61,7 @@ namespace LatexRendererAPI.Controllers
           if (query.FieldSort == "name")
             if (query.Sort.Equals("ascend")) projects = projects.OrderBy(x => x.Name);
             else projects = projects.OrderByDescending(x => x.Name);
-          if (query.FieldSort == "lastModified")
+          else if (query.FieldSort == "modifiedTime")
           {
             if (query.Sort.Equals("ascend"))
               projects = projects
@@ -79,7 +94,10 @@ namespace LatexRendererAPI.Controllers
                 UserProjects = p.UserProjects.Select(up => new 
                 {
                   up.Editor.Fullname,
-                  up.Editor.Username
+                  up.Editor.Username,
+                  up.EditorId,
+                  userId,
+                  up.Role,
                 }),
                 p.Versions.First(x => x.IsMainVersion).ModifiedTime,
                 Editor = new

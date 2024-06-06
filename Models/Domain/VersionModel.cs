@@ -9,10 +9,10 @@ namespace LatexRendererAPI.Models.Domain
     public Guid ProjectId { get; set; }
 
     [ForeignKey("EditorId")]
-    public UserModel? Editor { get; set; }
+    public UserModel Editor { get; set; } = null!;
 
     [ForeignKey("ProjectId")]
-    public ProjectModel? Project { get; set; }
+    public ProjectModel Project { get; set; } = null!;
     
     public required DateTime ModifiedTime { get; set; } = DateTime.Now;
     public bool IsMainVersion { get; set; }

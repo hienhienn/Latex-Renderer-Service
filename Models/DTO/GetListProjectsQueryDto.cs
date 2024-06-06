@@ -13,11 +13,11 @@ namespace LatexRendererAPI.Models.DTO
     public int PageSize { get; set; } = 10;
 
     [DefaultValue("all")]
-    [AllowedValues(["all", "yours", "shared"])]
+    [AllowedValues(["all", "yours", "shared", "starred"])]
     [AllowNull]
     public string Category { get; set; } = "all";
 
-    [AllowedValues(["name", "lastModified", null])]
+    [AllowedValues(["name", "modifiedTime", null])]
     public string? FieldSort { get; set; }
 
     [DefaultValue("descend")]

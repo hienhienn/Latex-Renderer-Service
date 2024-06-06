@@ -9,11 +9,11 @@ namespace LatexRendererAPI.Models.Domain
     public Guid EditorId { get; set; }
 
     [ForeignKey("EditorId")]
-    public UserModel? Editor { get; set; }
+    public UserModel Editor { get; set; } = null!;
 
     public Guid ProjectId { get; set; }
 
     [ForeignKey("ProjectId")]
-    public ProjectModel? Project { get; set; }
+    public ProjectModel Project { get; set; } = null!;
   }
 }
