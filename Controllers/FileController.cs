@@ -70,6 +70,23 @@ namespace LatexRendererAPI.Controllers
       return Ok(file);
     }
 
+    [HttpGet]
+    [Route("download/{id:Guid}")]
+    public IActionResult GetFileDownload([FromRoute] Guid id) 
+    {
+      var file = dbContext.Files.Find(id);
+      if (file == null) return NotFound();
+
+      if(file.Type == "img") {
+        var filePath = Path.Combine(Directory.GetCurrentDirectory(), config["AssetPath"] ?? "", file.Content);
+        byte[] fileBytes = System.IO.File.ReadAllBytes(filePath);
+
+        return File(fileBytes, "image/jpeg", file.Name);
+      }
+
+      return Ok();
+    }
+
     [HttpPost]
     [Route("uploadFile")]
     public async Task<IActionResult> UploadImage(
@@ -115,6 +132,7 @@ namespace LatexRendererAPI.Controllers
       {
         var version = dbContext.Versions.FirstOrDefault(p => p.Id == createFileDto.VersionId);
         if (version == null) return NotFound();
+
         var existFile = dbContext.Files.FirstOrDefault(p => p.Path == createFileDto.Path);
         if (existFile != null)
         {
@@ -122,8 +140,6 @@ namespace LatexRendererAPI.Controllers
             message = "A file with this name already exists!"
           });
         }
-
-        var projectId = version.ProjectId;
 
         var fileModel = new FileModel
         {
@@ -136,14 +152,11 @@ namespace LatexRendererAPI.Controllers
         };
         dbContext.Add(fileModel);
 
-
-        var project = dbContext.Projects.Find(projectId);
-        if (project == null) return NotFound();
         var time = DateTime.Now;
         version.ModifiedTime = time;
 
         dbContext.SaveChanges();
-        return CreatedAtAction(nameof(GetFileById), new { id = fileModel.Id }, fileModel);
+        return Ok();
       }
       return BadRequest(ModelState);
     }

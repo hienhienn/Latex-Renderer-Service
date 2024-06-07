@@ -6,6 +6,7 @@ using LatexRendererAPI.Models.Domain;
 using LatexRendererAPI.Services;
 using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
+using System.IO.Compression;
 
 namespace LatexRendererAPI.Controllers
 {
@@ -31,9 +32,8 @@ namespace LatexRendererAPI.Controllers
     {   
       try {
         var folderPath = Path.Combine(Directory.GetCurrentDirectory(), config["AssetPath"] ?? "", dto.Code);
-        Directory.CreateDirectory(folderPath);
         Parallel.ForEach(dto.Files, f => {
-          var folderFilePath = fileService.ParseFolderPath(f.Path, dto.Code);
+          var folderFilePath = fileService.ParseFolderPath(f.Path, dto.Code, "file");
           Directory.CreateDirectory(folderFilePath);
           if(f.Type == "tex")
           {
@@ -46,20 +46,7 @@ namespace LatexRendererAPI.Controllers
           {
             var sourcePath = Path.Combine(Directory.GetCurrentDirectory(), config["AssetPath"] ?? "", f.Content ?? "");
             var desPath = Path.Combine(folderFilePath, f.Name);
-            Console.WriteLine(sourcePath);
-            Console.WriteLine(desPath);
             fileService.CopyFile(sourcePath, desPath);
-            // using (FileStream sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read))
-            // using (FileStream destinationStream = new FileStream(desPath, FileMode.Open, FileAccess.Write))
-            // {
-            //   byte[] buffer = new byte[1024];
-            //   int bytesRead;
-
-            //   while ((bytesRead = sourceStream.Read(buffer, 0, buffer.Length)) > 0)
-            //   {
-            //     destinationStream.Write(buffer, 0, bytesRead);
-            //   }
-            // }
           }
         });
 
@@ -92,6 +79,40 @@ namespace LatexRendererAPI.Controllers
       } catch {
         return NotFound();
       }
+    }
+    
+    [HttpPost]
+    [Route("downloadFolder")]
+    public IActionResult DownloadFolder([FromBody] DownloadFolderDto dto)
+    {
+      Parallel.ForEach(dto.Files, f => {
+        var folderFilePath = fileService.ParseFolderPath(f.Path, dto.Code, "file");
+        Directory.CreateDirectory(folderFilePath);
+        if(f.Type == "tex")
+        {
+          using (StreamWriter outputFile = new StreamWriter(Path.Combine(folderFilePath, f.Name)))
+          {
+            outputFile.WriteAsync(f.Content);
+          }
+        } 
+        else 
+        {
+          var sourcePath = Path.Combine(Directory.GetCurrentDirectory(), config["AssetPath"] ?? "", f.Content ?? "");
+          var desPath = Path.Combine(folderFilePath, f.Name);
+          fileService.CopyFile(sourcePath, desPath);
+        }
+      });
+    
+      var zipFolderPath = fileService.ParseFolderPath(dto.FolderPath, dto.Code, "folder");
+      var zipFilePath = Path.Combine(
+        Directory.GetCurrentDirectory(), 
+        config["AssetPath"] ?? "", 
+        $"{dto.FolderName}-{DateTime.Now.Ticks}.zip"
+      );
+      ZipFile.CreateFromDirectory(zipFolderPath, zipFilePath);
+      byte[] fileBytes = System.IO.File.ReadAllBytes(zipFilePath);
+      return File(fileBytes, "application/zip", dto.FolderName);
+      // fileService.DeleteFile(zipFilePath);
     }
 
     [HttpPost]

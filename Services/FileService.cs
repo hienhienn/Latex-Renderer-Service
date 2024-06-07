@@ -4,9 +4,10 @@ namespace LatexRendererAPI.Services
   {
     public Task<string> SaveFile(IFormFile file, string name, string filePath);
     public void DeleteFolder(string path);
-    public void DeleteFile(string path, Guid projectId);
-    public void DeleteFileAllVersion(string path);
-    public string ParseFolderPath(string filePath, string code);
+    // public void DeleteFile(string path, Guid projectId);
+    public void DeleteFileRelativePath(string path);
+    public void DeleteFile(string path);
+    public string ParseFolderPath(string filePath, string code, string typePath);
     public void CopyFile(string source, string des);
   }
 
@@ -31,22 +32,6 @@ namespace LatexRendererAPI.Services
         stream.Close();
       }
 
-      var pathSplit = filePath.Split('/');
-      string[] pathStr = [
-        localPath,
-        config["CompilePath"] ?? ""
-      ];
-      string[] final = pathStr.Concat(pathSplit).ToArray();
-      string[] folderPath = new string[final.Length - 1];
-      Array.Copy(final, folderPath, final.Length - 1);
-      Directory.CreateDirectory(Path.Combine(folderPath));
-
-      using (FileStream stream = new FileStream(Path.Combine(final), FileMode.Create))
-      {
-        await file.CopyToAsync(stream);
-        stream.Close();
-      }
-
       return newFileName;
     }
 
@@ -64,33 +49,43 @@ namespace LatexRendererAPI.Services
       Directory.Delete(path);
     }
 
-    public void DeleteFile(string path, Guid projectId)
-    {
-      var pathSplit = path.Split('/');
-      string[] pathStr = [
-        localPath,
-        projectId.ToString(),
-        config["CompilePath"] ?? ""
-      ];
-      string[] final = pathStr.Concat(pathSplit).ToArray();
-      File.Delete(Path.Combine(final));
-    }
+    // public void DeleteFile(string path, Guid projectId)
+    // {
+    //   var pathSplit = path.Split('/');
+    //   string[] pathStr = [
+    //     localPath,
+    //     projectId.ToString(),
+    //     config["CompilePath"] ?? ""
+    //   ];
+    //   string[] final = pathStr.Concat(pathSplit).ToArray();
+    //   File.Delete(Path.Combine(final));
+    // }
 
-    public void DeleteFileAllVersion(string path)
+    public void DeleteFileRelativePath(string path)
     {
       File.Delete(Path.Combine(localPath, path));
     }
 
-    public string ParseFolderPath(string filePath, string code) {
+    public void DeleteFile(string path)
+    {
+      File.Delete(path);
+    }
+
+
+    public string ParseFolderPath(string filePath, string code, string typePath) {
       var pathSplit = filePath.Split('/');
       string[] pathStr = [
         localPath,
         code,
       ];
       string[] final = pathStr.Concat(pathSplit).ToArray();
-      string[] folderPath = new string[final.Length - 1];
-      Array.Copy(final, folderPath, final.Length - 1);
-      return Path.Combine(folderPath);
+      if(typePath == "file") 
+      {
+        string[] folderPath = new string[final.Length - 1];
+        Array.Copy(final, folderPath, final.Length - 1);
+        return Path.Combine(folderPath);
+      }
+      else return Path.Combine(final);
     }
 
      public void CopyFile(string source, string des) {
