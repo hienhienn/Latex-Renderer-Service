@@ -102,14 +102,14 @@ namespace LatexRendererAPI.Controllers
       if (existFile != null)
       {
         return BadRequest(new {
-            message = "A file with this name already exists!"
+          message = "A file with this name already exists!"
         });
       }
 
       var filePath = await fileService.SaveFile(file, name, path);
       var fileModel = new FileModel
       {
-        Name = $"{name}{Path.GetExtension(file.FileName)}",
+        Name = name,
         Content = filePath,
         VersionId = versionId,
         Path = path,

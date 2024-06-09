@@ -154,9 +154,11 @@ namespace LatexRendererAPI.Controllers
 
       if (version == null) return NotFound();
 
+      var currentUser = HttpContext.User;
+      var userId = User.Claims.First(claim => claim.Type == "UserId").Value;
+
       var project = dbContext.Projects
       .Include(p => p.Versions)
-      // .Include(p => p.Owner)
       .Select(p => new 
         {
           p.Name,
@@ -178,11 +180,11 @@ namespace LatexRendererAPI.Controllers
             up.EditorId,
             up.Id
           }),
-          version.IsMainVersion
+          version.IsMainVersion,
+          Role = p.UserProjects.First(v => v.EditorId == Guid.Parse(userId)).Role ?? null
         }
       )
-      .First(v => v.Id == version.ProjectId)
-      ;
+      .First(v => v.Id == version.ProjectId);
       // var listVersion = dbContext.Versions
       //   .Where(v => v.ProjectId == version.ProjectId)
       //   .Include(v => v.Editor)
