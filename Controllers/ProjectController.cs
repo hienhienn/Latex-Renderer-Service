@@ -52,6 +52,10 @@ namespace LatexRendererAPI.Controllers
           projects = projects
             .Include(p => p.UserProjects)
             .Where(p => p.UserProjects.First(up => up.EditorId == Guid.Parse(userId) && up.Role != "owner") != null);
+        else if(query.Category == "starred")
+          projects = projects
+            .Include(p => p.StarProjects)
+            .Where(p => p.StarProjects.First(up => up.EditorId == Guid.Parse(userId)) != null);
 
         if (!string.IsNullOrWhiteSpace(query.Keyword))
           projects = projects.Where(e => e.Name.Contains(query.Keyword));
