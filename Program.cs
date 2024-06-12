@@ -116,10 +116,12 @@ app.Use(async (context, next) =>
         {
             if (context.Request.Path.StartsWithSegments("/ws", out var remainingPath))
             {
-                var projectId = remainingPath.Value.Trim('/');
-                if (!string.IsNullOrEmpty(projectId))
+                var segments = remainingPath.Value.Trim('/').Split('/');
+                if (segments.Length == 2)
                 {
-                    await webSocketHandler.HandleWebSocketAsync(context, projectId);
+                    var projectId = segments[0];
+                    var userId = segments[1];
+                    await webSocketHandler.HandleWebSocketAsync(context, projectId, userId);
                     return;
                 }
             }
