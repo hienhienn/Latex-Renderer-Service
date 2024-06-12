@@ -175,6 +175,10 @@ namespace LatexRendererAPI.Controllers
       var currentUser = HttpContext.User;
       var userId = User.Claims.First(claim => claim.Type == "UserId").Value;
 
+      var copyVersion = dbContext.Versions.Find(dto.VersionId);
+      if(copyVersion == null) return NotFound();
+      var mainCopyFile = dbContext.Files.Find(copyVersion.MainFileId);
+
       var project = new ProjectModel
       {
         Name = dto.Name,
@@ -195,8 +199,10 @@ namespace LatexRendererAPI.Controllers
 
       project.MainVersionId = version.Id;
 
+      var files = dbContext.Files.Where(f => f.VersionId == dto.VersionId);
+
       Parallel.ForEach(
-          dto.Files,
+          files,
           f =>
           {
             var newFile = new FileModel
@@ -210,7 +216,7 @@ namespace LatexRendererAPI.Controllers
             dbContext.Files.AddAsync(newFile);
           }
       );
-      var mainFile = dbContext.Files.First(f => f.Path == dto.MainFilePath && f.VersionId == version.Id);
+      var mainFile = dbContext.Files.First(f => f.Path == mainCopyFile.Path);
       if (mainFile != null) version.MainFileId = mainFile.Id;
       dbContext.SaveChanges();
       return Ok();

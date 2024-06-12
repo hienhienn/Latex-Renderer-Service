@@ -13,5 +13,7 @@ namespace LatexRendererAPI.Models.DTO
 
     [Required]
     public required string Path { get; set; }
+
+    public string? Content { get; set; }
   }
 }

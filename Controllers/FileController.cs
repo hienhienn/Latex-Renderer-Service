@@ -144,7 +144,7 @@ namespace LatexRendererAPI.Controllers
         var fileModel = new FileModel
         {
           Name = createFileDto.Name,
-          Content = "",
+          Content = createFileDto.Content ?? "",
           VersionId = createFileDto.VersionId,
           Path = createFileDto.Path,
           Type = "tex"
