@@ -9,5 +9,8 @@ namespace LatexRendererAPI.Models.DTO
 
     [Required]
     public required string Code { get; set; }
+
+    [Required]
+    public required string CompilePath { get; set; }
   }
 }

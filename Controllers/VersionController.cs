@@ -71,15 +71,7 @@ namespace LatexRendererAPI.Controllers
                     }
                 );
 
-                var mainFile = new FileInfo(Path.Combine(folderPath, "main.tex"));
-
-                if (!mainFile.Exists)
-                {
-                    return BadRequest(
-                        new { message = "Main.tex file does not exists in this projects" }
-                    );
-                }
-                var processInfo = new ProcessStartInfo("cmd.exe", "/c " + "pdflatex main.tex")
+                var processInfo = new ProcessStartInfo("cmd.exe", "/c " + $"pdflatex {dto.CompilePath}")
                 {
                     UseShellExecute = false,
                     WorkingDirectory = folderPath,
@@ -145,7 +137,7 @@ namespace LatexRendererAPI.Controllers
                 }
             );
 
-            var zipFolderPath = fileService.ParseFolderPath(dto.FolderPath, dto.Code, "folder");
+            var zipFolderPath = fileService.ParseFolderPath(dto.FolderPath ?? "", dto.Code, "folder");
             var zipFilePath = Path.Combine(
                 Directory.GetCurrentDirectory(),
                 config["AssetPath"] ?? "",
@@ -154,7 +146,6 @@ namespace LatexRendererAPI.Controllers
             ZipFile.CreateFromDirectory(zipFolderPath, zipFilePath);
             byte[] fileBytes = System.IO.File.ReadAllBytes(zipFilePath);
             return File(fileBytes, "application/zip", dto.FolderName);
-            // fileService.DeleteFile(zipFilePath);
         }
 
         [HttpPost]
@@ -170,7 +161,8 @@ namespace LatexRendererAPI.Controllers
                 ModifiedTime = DateTime.Now,
                 EditorId = Guid.Parse(userId),
                 IsMainVersion = false,
-                Description = dto.Description
+                Description = dto.Description,
+                MainFileId = new Guid()
             };
             dbContext.Add(version);
             Parallel.ForEach(
@@ -188,6 +180,8 @@ namespace LatexRendererAPI.Controllers
                     dbContext.Files.AddAsync(newFile);
                 }
             );
+            var mainFile = dbContext.Files.First(f => f.Path == dto.MainFilePath && f.VersionId == version.Id);
+            if (mainFile != null) version.MainFileId = mainFile.Id;
             dbContext.SaveChanges();
             return Ok();
         }
@@ -216,9 +210,11 @@ namespace LatexRendererAPI.Controllers
                         v.Editor.Username,
                         v.IsMainVersion,
                         v.ModifiedTime,
-                        v.Description
+                        v.Description,
+                        v.Id
                     }),
                     p.IsPublic,
+                    p.MainVersionId,
                     UserProjects = p.UserProjects.Select(up => new
                     {
                         up.Role,
@@ -228,7 +224,9 @@ namespace LatexRendererAPI.Controllers
                         up.Id
                     }),
                     version.IsMainVersion,
+                    p.Versions.First(p => p.IsMainVersion == true).MainFileId,
                     Role = p.UserProjects.First(v => v.EditorId == Guid.Parse(userId)).Role ?? null,
+                    userId,
                     TotalStar = p.StarProjects.Count(),
                     Starred = p.StarProjects.First(sp => sp.EditorId == Guid.Parse(userId)) != null
                         ? true
@@ -254,6 +252,19 @@ namespace LatexRendererAPI.Controllers
             //   listVersion
             // });
             return Ok(project);
+        }
+
+        [HttpPut]
+        [Route("{id:Guid}")]
+        public IActionResult UpdateVersion([FromRoute] Guid id, [FromBody] UpdateVersionDto dto)
+        {
+            var version = dbContext.Versions.Find(id);
+            if (version == null) return NotFound();
+
+            if (dto.MainFileId != null) version.MainFileId = Guid.Parse(dto.MainFileId);
+
+            dbContext.SaveChanges();
+            return Ok(dto);
         }
     }
 }

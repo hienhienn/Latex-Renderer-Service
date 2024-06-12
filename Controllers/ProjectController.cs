@@ -40,19 +40,19 @@ namespace LatexRendererAPI.Controllers
         var currentUser = HttpContext.User;
         var userId = User.Claims.First(claim => claim.Type == "UserId").Value;
 
-        if(query.Category == "all") 
+        if (query.Category == "all")
           projects = projects
           .Include(p => p.UserProjects)
           .Where(p => p.UserProjects.First(up => up.EditorId == Guid.Parse(userId)) != null);
-        else if(query.Category == "yours")
+        else if (query.Category == "yours")
           projects = projects
             .Include(p => p.UserProjects)
             .Where(p => p.UserProjects.First(up => up.EditorId == Guid.Parse(userId) && up.Role == "owner") != null);
-        else if(query.Category == "shared")
+        else if (query.Category == "shared")
           projects = projects
             .Include(p => p.UserProjects)
             .Where(p => p.UserProjects.First(up => up.EditorId == Guid.Parse(userId) && up.Role != "owner") != null);
-        else if(query.Category == "starred")
+        else if (query.Category == "starred")
           projects = projects
             .Include(p => p.StarProjects)
             .Where(p => p.StarProjects.First(up => up.EditorId == Guid.Parse(userId)) != null);
@@ -73,7 +73,7 @@ namespace LatexRendererAPI.Controllers
                           .Include(p => p.Versions)
                           .OrderBy(p => p.Versions.First(x => x.IsMainVersion).ModifiedTime);
 
-            else 
+            else
               projects = projects
                           .Where(p => p.Versions != null)
                           .Include(p => p.Versions)
@@ -95,7 +95,7 @@ namespace LatexRendererAPI.Controllers
                 p.Name,
                 p.IsPublic,
                 p.MainVersionId,
-                UserProjects = p.UserProjects.Select(up => new 
+                UserProjects = p.UserProjects.Select(up => new
                 {
                   up.Editor.Fullname,
                   up.Editor.Username,
@@ -130,7 +130,7 @@ namespace LatexRendererAPI.Controllers
       };
       dbContext.Projects.Add(newProject);
 
-      var newUserProject = new UserProject 
+      var newUserProject = new UserProject
       {
         ProjectId = newProject.Id,
         EditorId = Guid.Parse(userId),
@@ -143,7 +143,9 @@ namespace LatexRendererAPI.Controllers
         EditorId = Guid.Parse(userId),
         ProjectId = newProject.Id,
         ModifiedTime = DateTime.Now,
-        IsMainVersion = true
+        IsMainVersion = true,
+        MainFileId = new Guid(),
+        Description = "Main Version"
       };
       dbContext.Versions.Add(newVersion);
 
@@ -159,8 +161,58 @@ namespace LatexRendererAPI.Controllers
       };
       dbContext.Files.Add(mainFile);
 
+      newVersion.MainFileId = mainFile.Id;
+
       dbContext.SaveChanges();
       // return Ok(newProject);
+      return Ok();
+    }
+
+    [HttpPost]
+    [Route("copyProject")]
+    public IActionResult CopyProject([FromBody] CopyProjectDto dto)
+    {
+      var currentUser = HttpContext.User;
+      var userId = User.Claims.First(claim => claim.Type == "UserId").Value;
+
+      var project = new ProjectModel
+      {
+        Name = dto.Name,
+        MainVersionId = new Guid(),
+      };
+      dbContext.Add(project);
+
+      var version = new VersionModel
+      {
+        ProjectId = project.Id,
+        ModifiedTime = DateTime.Now,
+        EditorId = Guid.Parse(userId),
+        IsMainVersion = true,
+        Description = "Main version",
+        MainFileId = new Guid()
+      };
+      dbContext.Add(version);
+
+      project.MainVersionId = version.Id;
+
+      Parallel.ForEach(
+          dto.Files,
+          f =>
+          {
+            var newFile = new FileModel
+            {
+              Content = f.Content,
+              Type = f.Type,
+              Path = f.Path,
+              Name = f.Name,
+              VersionId = version.Id
+            };
+            dbContext.Files.AddAsync(newFile);
+          }
+      );
+      var mainFile = dbContext.Files.First(f => f.Path == dto.MainFilePath && f.VersionId == version.Id);
+      if (mainFile != null) version.MainFileId = mainFile.Id;
+      dbContext.SaveChanges();
       return Ok();
     }
 
@@ -188,7 +240,6 @@ namespace LatexRendererAPI.Controllers
         return NotFound();
       }
       if (dto.Name != null && dto.Name != "") project.Name = dto.Name;
-      if (dto.PdfFile != null) project.PdfFile = dto.PdfFile;
       if (dto.IsPublic != null) project.IsPublic = dto.IsPublic;
 
       dbContext.SaveChanges();

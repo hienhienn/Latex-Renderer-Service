@@ -8,7 +8,6 @@ namespace LatexRendererAPI.Models.Domain
     public required string Name { get; set; }
     public required Guid MainVersionId { get; set; }
     public bool? IsPublic { get; set; } = false;
-    public string? PdfFile { get; set; }
     public ICollection<UserProject> UserProjects { get; set; } = [];
     public ICollection<StarProject> StarProjects { get; set; } = [];
     public ICollection<VersionModel> Versions { get; set; } = [];

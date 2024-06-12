@@ -147,8 +147,7 @@ namespace LatexRendererAPI.Controllers
           Content = "",
           VersionId = createFileDto.VersionId,
           Path = createFileDto.Path,
-          Type = "tex",
-          IsCompile = false
+          Type = "tex"
         };
         dbContext.Add(fileModel);
 
@@ -188,11 +187,19 @@ namespace LatexRendererAPI.Controllers
         if (dto.Content != null) file.Content = dto.Content;
         if (dto.Name != null) file.Name = dto.Name;
         if (dto.Path != null) file.Path = dto.Path;
-        if (file.Type == "tex") file.IsCompile = false;
 
         var filesStr = $"Id: {file.Id}, Name: {file.Name}, Path: {file.Path}, Content{file.Content}";
         var newShaCode = ComputeSha256Hash(filesStr ?? "");
         file.ShaCode = newShaCode;
+        var version = dbContext.Versions.Find(file.VersionId);
+        if (version != null)
+        {
+          var currentUser = HttpContext.User;
+          var userId = User.Claims.First(claim => claim.Type == "UserId").Value;
+
+          version.ModifiedTime = DateTime.Now;
+          version.EditorId = Guid.Parse(userId);
+        }
         dbContext.SaveChanges();
 
         return Ok(new

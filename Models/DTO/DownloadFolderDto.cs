@@ -10,8 +10,7 @@ namespace LatexRendererAPI.Models.DTO
     [Required]
     public required string Code { get; set; }
 
-    [Required]
-    public required string FolderPath { get; set; }
+    public string? FolderPath { get; set; }
 
     [Required]
     public required string FolderName { get; set; }

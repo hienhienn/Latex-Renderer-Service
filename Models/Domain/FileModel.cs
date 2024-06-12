@@ -10,6 +10,5 @@ namespace LatexRendererAPI.Models.Domain
     public required string Content { get; set; }
     public VersionModel Version { get; set; } = null!;
     public string? ShaCode { get; set; }
-    public bool? IsCompile { get; set; }
   }
 }

@@ -16,6 +16,8 @@ namespace LatexRendererAPI.Models.Domain
     
     public required DateTime ModifiedTime { get; set; } = DateTime.Now;
     public bool IsMainVersion { get; set; }
-    public string? Description { get; set; }
-    }
+    public required string Description { get; set; }
+    public required Guid MainFileId { get; set; }
+    public string? PdfFile { get; set; }
+  }
 }

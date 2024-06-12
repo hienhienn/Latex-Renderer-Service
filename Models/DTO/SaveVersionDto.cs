@@ -6,6 +6,7 @@ namespace LatexRendererAPI.Models.DTO
   {
     [Required]
     public required SaveFileVersionDto[] Files { get; set; }
-    public string? Description { get; set; }
+    public required string Description { get; set; }
+    public required string MainFilePath { get; set; }
   }
 }
