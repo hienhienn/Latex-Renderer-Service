@@ -81,8 +81,8 @@ builder.Services.AddCors(options =>
         }
     );
 });
-builder.Services.AddSingleton<WebSocketConnectionManager>();
-
+builder.Services.AddSingleton<WebSocketHandler>();
+var webSocketHandler = new WebSocketHandler();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -98,7 +98,7 @@ app.UseCors(MyAllowSpecificOrigins);
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseWebSockets();
-app.UseMiddleware<WebSocketMiddleware>();
+// app.UseMiddleware<WebSocketMiddleware>();
 app.UseStaticFiles(
     new StaticFileOptions
     {
@@ -111,6 +111,21 @@ app.UseStaticFiles(
         RequestPath = ""
     }
 );
+
+app.Use(async (context, next) =>
+        {
+            if (context.Request.Path.StartsWithSegments("/ws", out var remainingPath))
+            {
+                var projectId = remainingPath.Value.Trim('/');
+                if (!string.IsNullOrEmpty(projectId))
+                {
+                    await webSocketHandler.HandleWebSocketAsync(context, projectId);
+                    return;
+                }
+            }
+
+            await next();
+        });
 
 app.MapControllers();
 app.Run();
