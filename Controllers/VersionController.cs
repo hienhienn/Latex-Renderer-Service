@@ -34,56 +34,64 @@ namespace LatexRendererAPI.Controllers
         [Route("compile")]
         public IActionResult CompilePDF([FromBody] CompileDto dto)
         {
-            try
-            {
-                var folderPath = Path.Combine(
-                    Directory.GetCurrentDirectory(),
-                    config["AssetPath"] ?? "",
-                    dto.Code
-                );
-                Parallel.ForEach(
-                    dto.Files,
-                    f =>
+            var folderPath = fileService.ParseFolderPath(dto.CompilePath, dto.Code, "file");
+            var name = dto.CompilePath.Split('/').Last();
+            var filePath = Path.Combine(folderPath, name);
+            var nameWoExt = Path.GetFileNameWithoutExtension(filePath);
+            var tasks = dto
+                .Files.Select(async f =>
+                {
+                    var folderFilePath = fileService.ParseFolderPath(f.Path, dto.Code, "file");
+                    Directory.CreateDirectory(folderFilePath);
+                    if (f.Type == "tex")
                     {
-                        var folderFilePath = fileService.ParseFolderPath(f.Path, dto.Code, "file");
-                        Directory.CreateDirectory(folderFilePath);
-                        if (f.Type == "tex")
+                        var filePath = Path.Combine(folderFilePath, f.Name);
+                        using (StreamWriter outputFile = new StreamWriter(filePath))
                         {
-                            using (
-                                StreamWriter outputFile = new StreamWriter(
-                                    Path.Combine(folderFilePath, f.Name)
-                                )
-                            )
-                            {
-                                outputFile.WriteAsync(f.Content);
-                            }
-                        }
-                        else
-                        {
-                            var sourcePath = Path.Combine(
-                                Directory.GetCurrentDirectory(),
-                                config["AssetPath"] ?? "",
-                                f.Content ?? ""
-                            );
-                            var desPath = Path.Combine(folderFilePath, f.Name);
-                            fileService.CopyFile(sourcePath, desPath);
+                            await outputFile.WriteAsync(f.Content);
                         }
                     }
-                );
+                    else
+                    {
+                        var sourcePath = Path.Combine(
+                            Directory.GetCurrentDirectory(),
+                            config["AssetPath"] ?? "",
+                            f.Content ?? ""
+                        );
+                        var desPath = Path.Combine(folderFilePath, f.Name);
+                        fileService.CopyFile(sourcePath, desPath);
+                    }
+                })
+                .ToArray();
 
-                var processInfo = new ProcessStartInfo("cmd.exe", "/c " + $"pdflatex {dto.CompilePath}")
-                {
-                    UseShellExecute = false,
-                    WorkingDirectory = folderPath,
-                };
-                var process = Process.Start(processInfo);
-                process?.WaitForExit();
-                return Ok($"/{dto.Code}/main.pdf");
-            }
-            catch
+            Task.WhenAll(tasks).Wait();
+
+            var processInfo = new ProcessStartInfo("cmd.exe", $"/c pdflatex {name}")
             {
-                return BadRequest();
+                UseShellExecute = false,
+                RedirectStandardInput = true,
+                WorkingDirectory = folderPath,
+            };
+            var process = Process.Start(processInfo);
+            Task.Run(() =>
+            {
+                using (StreamWriter sw = process.StandardInput)
+                {
+                    while (!process.HasExited)
+                    {
+                        if (sw.BaseStream.CanWrite)
+                        {
+                            sw.WriteLine();
+                        }
+                    }
+                }
+            });
+            process?.WaitForExit();
+            if (fileService.CheckExists(Path.Combine(folderPath, nameWoExt + ".pdf")))
+            {
+                return Ok(new { CompileSuccess = true, Path = dto.CompilePath });
             }
+            return Ok(new { CompileSuccess = false });
         }
 
         [HttpDelete]
@@ -137,7 +145,11 @@ namespace LatexRendererAPI.Controllers
                 }
             );
 
-            var zipFolderPath = fileService.ParseFolderPath(dto.FolderPath ?? "", dto.Code, "folder");
+            var zipFolderPath = fileService.ParseFolderPath(
+                dto.FolderPath ?? "",
+                dto.Code,
+                "folder"
+            );
             var zipFilePath = Path.Combine(
                 Directory.GetCurrentDirectory(),
                 config["AssetPath"] ?? "",
@@ -180,8 +192,11 @@ namespace LatexRendererAPI.Controllers
                     dbContext.Files.AddAsync(newFile);
                 }
             );
-            var mainFile = dbContext.Files.First(f => f.Path == dto.MainFilePath && f.VersionId == version.Id);
-            if (mainFile != null) version.MainFileId = mainFile.Id;
+            var mainFile = dbContext.Files.First(f =>
+                f.Path == dto.MainFilePath && f.VersionId == version.Id
+            );
+            if (mainFile != null)
+                version.MainFileId = mainFile.Id;
             dbContext.SaveChanges();
             return Ok();
         }
@@ -259,9 +274,11 @@ namespace LatexRendererAPI.Controllers
         public IActionResult UpdateVersion([FromRoute] Guid id, [FromBody] UpdateVersionDto dto)
         {
             var version = dbContext.Versions.Find(id);
-            if (version == null) return NotFound();
+            if (version == null)
+                return NotFound();
 
-            if (dto.MainFileId != null) version.MainFileId = Guid.Parse(dto.MainFileId);
+            if (dto.MainFileId != null)
+                version.MainFileId = Guid.Parse(dto.MainFileId);
 
             dbContext.SaveChanges();
             return Ok(dto);
