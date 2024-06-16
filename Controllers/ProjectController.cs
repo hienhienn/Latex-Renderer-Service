@@ -89,21 +89,24 @@ namespace LatexRendererAPI.Controllers
               .Take(query.PageSize)
               .Include(o => o.Versions)
               .Include(o => o.UserProjects)
+              .Include(o => o.StarProjects)
               .Select(p => new
               {
                 p.Id,
                 p.Name,
                 p.IsPublic,
                 p.MainVersionId,
+                p.Versions,
                 UserProjects = p.UserProjects.Select(up => new
                 {
                   up.Editor.Fullname,
                   up.Editor.Username,
                   up.EditorId,
-                  userId,
                   up.Role,
                 }),
                 p.Versions.First(x => x.IsMainVersion).ModifiedTime,
+                p.UserProjects.First(up => up.EditorId == Guid.Parse(userId)).Role,
+                Starred = p.StarProjects.First(up => up.EditorId == Guid.Parse(userId)) == null ? false : true,
                 Editor = new
                 {
                   p.Versions.First(x => x.IsMainVersion).Editor.Fullname,
