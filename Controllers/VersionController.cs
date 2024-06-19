@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LatexRendererAPI.Controllers
 {
-    [Authorize]
     [Route("[controller]")]
     [ApiController]
     public class VersionController : ControllerBase
@@ -18,16 +17,19 @@ namespace LatexRendererAPI.Controllers
         private AppDbContext dbContext;
         private IConfiguration config;
         private IFileService fileService;
+        private AuthService authService;
 
         public VersionController(
             AppDbContext _dbContext,
             IConfiguration _config,
-            IFileService _fileService
+            IFileService _fileService,
+            AuthService _authService
         )
         {
             dbContext = _dbContext;
             config = _config;
             fileService = _fileService;
+            authService = _authService;
         }
 
         [HttpPost]
@@ -94,6 +96,7 @@ namespace LatexRendererAPI.Controllers
             return Ok(new { CompileSuccess = false });
         }
 
+        [Authorize]
         [HttpDelete]
         [Route("compile/{Code}")]
         public IActionResult DeleteCompileFolder([FromRoute] string Code)
@@ -112,6 +115,7 @@ namespace LatexRendererAPI.Controllers
         }
 
         [HttpPost]
+        [Authorize]
         [Route("downloadFolder")]
         public IActionResult DownloadFolder([FromBody] DownloadFolderDto dto)
         {
@@ -129,7 +133,7 @@ namespace LatexRendererAPI.Controllers
                             )
                         )
                         {
-                            outputFile.WriteAsync(f.Content);
+                            outputFile.Write(f.Content);
                         }
                     }
                     else
@@ -161,6 +165,7 @@ namespace LatexRendererAPI.Controllers
         }
 
         [HttpPost]
+        [Authorize]
         [Route("saveVersion/{projectId:Guid}")]
         public IActionResult SaveVersion([FromRoute] Guid projectId, [FromBody] SaveVersionDto dto)
         {
@@ -190,15 +195,13 @@ namespace LatexRendererAPI.Controllers
                         Name = f.Name,
                         VersionId = newVersion.Id
                     };
-                    dbContext.Files.AddAsync(newFile);
+                    dbContext.Add(newFile);
+                    if (f.Path == dto.MainFilePath)
+                    {
+                        newVersion.MainFileId = newFile.Id;
+                    }
                 }
             );
-
-            var mainFile = dbContext
-                .Files.Where(f => f.Path == dto.MainFilePath && f.VersionId == newVersion.Id)
-                .FirstOrDefault();
-            if (mainFile != null)
-                newVersion.MainFileId = mainFile.Id;
             dbContext.SaveChanges();
             return Ok();
         }
@@ -211,11 +214,19 @@ namespace LatexRendererAPI.Controllers
 
             if (version == null)
                 return NotFound();
-
             var currentUser = HttpContext.User;
-            var userId = User.Claims.First(claim => claim.Type == "UserId").Value;
+            var userId = HttpContext.User.Identity.IsAuthenticated ? User.Claims.First(claim => claim.Type == "UserId").Value : new Guid().ToString();
 
-            var project = dbContext
+            var project = dbContext.Projects.Include(p => p.UserProjects).First(p => p.Id == version.ProjectId);
+            if (
+                !project.IsPublic &&
+                project.UserProjects.FirstOrDefault(up => up.EditorId == Guid.Parse(userId)) == null
+            )
+            {
+                return Unauthorized();
+            }
+
+            var res = dbContext
                 .Projects.Include(p => p.Versions)
                 .Select(p => new
                 {
@@ -241,38 +252,25 @@ namespace LatexRendererAPI.Controllers
                         up.Id
                     }),
                     version.IsMainVersion,
-                    p.Versions.First(p => p.IsMainVersion == true).MainFileId,
+                    version.MainFileId,
                     version.Description,
-                    Role = p.UserProjects.First(v => v.EditorId == Guid.Parse(userId)).Role ?? null,
+                    Role = p.UserProjects.FirstOrDefault(v => v.EditorId == Guid.Parse(userId)).Role ?? null,
                     userId,
                     TotalStar = p.StarProjects.Count(),
-                    Starred = p.StarProjects.First(sp => sp.EditorId == Guid.Parse(userId)) != null
+                    Starred = p.StarProjects.FirstOrDefault(sp => sp.EditorId == Guid.Parse(userId)) != null
                         ? true
                         : false,
-                    StarredId = p.StarProjects.First(sp => sp.EditorId == Guid.Parse(userId))
+                    StarredId = p.StarProjects.FirstOrDefault(sp => sp.EditorId == Guid.Parse(userId))
                     != null
-                        ? p.StarProjects.First(sp => sp.EditorId == Guid.Parse(userId)).Id
+                        ? p.StarProjects.FirstOrDefault(sp => sp.EditorId == Guid.Parse(userId)).Id
                         : new Guid()
                 })
                 .First(v => v.Id == version.ProjectId);
-            // var listVersion = dbContext.Versions
-            //   .Where(v => v.ProjectId == version.ProjectId)
-            //   .Include(v => v.Editor)
-            //   .Select(v => new {
-            //     v.Id,
-            //     v.IsMainVersion,
-            //     v.Editor,
-            //     v.ModifiedTime,
-            //     v.Description
-            //   });
-            // return Ok(new {
-            //   version,
-            //   listVersion
-            // });
-            return Ok(project);
+            return Ok(res);
         }
 
         [HttpPut]
+        [Authorize]
         [Route("{id:Guid}")]
         public IActionResult UpdateVersion([FromRoute] Guid id, [FromBody] UpdateVersionDto dto)
         {

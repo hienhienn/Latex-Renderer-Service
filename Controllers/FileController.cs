@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LatexRendererAPI.Controllers
 {
-    [Authorize]
     [Route("[controller]")]
     [ApiController]
     public class FileController : ControllerBase
@@ -18,25 +17,41 @@ namespace LatexRendererAPI.Controllers
         private AppDbContext dbContext;
         private IFileService fileService;
         private IConfiguration config;
+        private AuthService authService;
 
         public FileController(
             AppDbContext _dbContext,
             IFileService _fileService,
-            IConfiguration _config
+            IConfiguration _config,
+            AuthService _authService
         )
         {
             dbContext = _dbContext;
             fileService = _fileService;
             config = _config;
+            authService = _authService;
         }
 
         [HttpGet]
         [Route("getAll/{versionId:Guid}")]
         public IActionResult GetFilesVersion([FromRoute] Guid versionId)
         {
-            var version = dbContext.Versions.Find(versionId);
+            var version = dbContext.Versions.FirstOrDefault(v => v.Id == versionId);
+
             if (version == null)
                 return NotFound();
+            var currentUser = HttpContext.User;
+            var userId = HttpContext.User.Identity.IsAuthenticated ? User.Claims.First(claim => claim.Type == "UserId").Value : new Guid().ToString();
+
+            var project = dbContext.Projects.Include(p => p.UserProjects).First(p => p.Id == version.ProjectId);
+            if (
+                !project.IsPublic &&
+                project.UserProjects.FirstOrDefault(up => up.EditorId == Guid.Parse(userId)) == null
+            )
+            {
+                return Unauthorized();
+            }
+
             var files = dbContext
                 .Files.Where(f => f.VersionId == versionId)
                 .Select(f => new
@@ -100,6 +115,7 @@ namespace LatexRendererAPI.Controllers
 
         [HttpPost]
         [Route("uploadFile")]
+        [Authorize]
         public async Task<IActionResult> UploadImage(
             [FromForm] IFormFile file,
             [FromForm] string name,
@@ -138,6 +154,7 @@ namespace LatexRendererAPI.Controllers
 
         [HttpPost]
         [Route("createFile")]
+        [Authorize]
         public IActionResult CreateFile([FromBody] CreateFileDto createFileDto)
         {
             if (ModelState.IsValid)
@@ -177,6 +194,8 @@ namespace LatexRendererAPI.Controllers
 
         [HttpPut]
         [Route("updateFile/{id:Guid}")]
+        [Authorize]
+
         public IActionResult UpdateFile([FromRoute] Guid id, [FromBody] UpdateFileDto dto)
         {
             if (ModelState.IsValid)
@@ -230,6 +249,7 @@ namespace LatexRendererAPI.Controllers
 
         [HttpPut]
         [Route("renameFile/{id:Guid}")]
+        [Authorize]
         public IActionResult RenameFile([FromRoute] Guid id, [FromBody] UpdateFileDto dto)
         {
             if (ModelState.IsValid)
@@ -274,6 +294,7 @@ namespace LatexRendererAPI.Controllers
 
         [HttpDelete]
         [Route("deleteFile/{id:Guid}")]
+        [Authorize]
         public IActionResult DeleteFile([FromRoute] Guid id, [FromQuery] string shaCode)
         {
             var file = dbContext.Files.Find(id);

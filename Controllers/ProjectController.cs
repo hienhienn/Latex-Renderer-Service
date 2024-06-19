@@ -271,8 +271,10 @@ namespace LatexRendererAPI.Controllers
             }
             if (dto.Name != null && dto.Name != "")
                 project.Name = dto.Name;
-            if (dto.IsPublic != null)
-                project.IsPublic = dto.IsPublic;
+            if (dto.IsPublic == true)
+                project.IsPublic = true;
+            if (dto.IsPublic == false)
+                project.IsPublic = false;
 
             dbContext.SaveChanges();
 

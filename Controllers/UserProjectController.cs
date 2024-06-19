@@ -34,6 +34,7 @@ namespace LatexRendererAPI.Controllers
         {
             EditorId = dto.EditorId,
             ProjectId = dto.ProjectId,
+            Role = dto.Role ?? "viewer"
         };
         dbContext.UserProjects.Add(memberProject);
         dbContext.SaveChanges();

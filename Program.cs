@@ -50,6 +50,7 @@ builder.Services.AddSwaggerGen(options =>
 });
 builder.Services.AddScoped<IPasswordHasher<string>, PasswordHasher<string>>();
 builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddSingleton<AuthService>();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("AppConnectionString"))
 );
