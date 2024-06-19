@@ -206,8 +206,18 @@ namespace LatexRendererAPI.Controllers
                 return NotFound();
             var mainCopyFile = dbContext.Files.Find(copyVersion.MainFileId);
 
-            var project = new ProjectModel { Name = dto.Name, MainVersionId = new Guid(), };
+            var project = new ProjectModel { 
+                Name = dto.Name, 
+                MainVersionId = new Guid()
+            };
             dbContext.Add(project);
+
+            var userProject = new UserProject {
+                EditorId = Guid.Parse(userId),
+                ProjectId = project.Id,
+                Role = "owner"
+            };
+            dbContext.Add(userProject);
 
             var version = new VersionModel
             {
@@ -236,12 +246,17 @@ namespace LatexRendererAPI.Controllers
                         Name = f.Name,
                         VersionId = version.Id
                     };
-                    dbContext.Files.AddAsync(newFile);
+                    dbContext.Files.Add(newFile);
+
+                    if(mainCopyFile != null && newFile.Path == mainCopyFile.Path)
+                    {
+                        version.MainFileId = newFile.Id;
+                    }
                 }
             );
-            var mainFile = dbContext.Files.First(f => f.Path == mainCopyFile.Path);
-            if (mainFile != null)
-                version.MainFileId = mainFile.Id;
+            // var mainFile = dbContext.Files.First(f => f.Path == mainCopyFile.Path);
+            // if (mainFile != null)
+            //     version.MainFileId = mainFile.Id;
             dbContext.SaveChanges();
             return Ok();
         }

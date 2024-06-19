@@ -223,7 +223,9 @@ namespace LatexRendererAPI.Controllers
                 project.UserProjects.FirstOrDefault(up => up.EditorId == Guid.Parse(userId)) == null
             )
             {
-                return Unauthorized();
+                return Ok(new {
+                    IsPublic = false,
+                });
             }
 
             var res = dbContext
@@ -232,15 +234,19 @@ namespace LatexRendererAPI.Controllers
                 {
                     p.Name,
                     p.Id,
-                    Versions = p.Versions.Select(v => new
-                    {
-                        v.Editor.Fullname,
-                        v.Editor.Username,
-                        v.IsMainVersion,
-                        v.ModifiedTime,
-                        v.Description,
-                        v.Id
-                    }),
+                    Versions = p.Versions
+                    .OrderByDescending(v => v.IsMainVersion)
+                    .ThenByDescending(v => v.ModifiedTime)
+                    .Select(v => new
+                        {
+                            v.Editor.Fullname,
+                            v.Editor.Username,
+                            v.IsMainVersion,
+                            v.ModifiedTime,
+                            v.Description,
+                            v.Id
+                        })
+                    ,
                     p.IsPublic,
                     p.MainVersionId,
                     UserProjects = p.UserProjects.Select(up => new

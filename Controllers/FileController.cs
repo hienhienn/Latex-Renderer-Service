@@ -7,6 +7,7 @@ using LatexRendererAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualBasic;
 
 namespace LatexRendererAPI.Controllers
 {
@@ -49,7 +50,7 @@ namespace LatexRendererAPI.Controllers
                 project.UserProjects.FirstOrDefault(up => up.EditorId == Guid.Parse(userId)) == null
             )
             {
-                return Unauthorized();
+                return Ok(new Collection());
             }
 
             var files = dbContext
