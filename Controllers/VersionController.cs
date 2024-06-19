@@ -167,7 +167,7 @@ namespace LatexRendererAPI.Controllers
             var currentUser = HttpContext.User;
             var userId = User.Claims.First(claim => claim.Type == "UserId").Value;
 
-            var version = new VersionModel
+            var newVersion = new VersionModel
             {
                 ProjectId = projectId,
                 ModifiedTime = DateTime.Now,
@@ -176,7 +176,8 @@ namespace LatexRendererAPI.Controllers
                 Description = dto.Description,
                 MainFileId = new Guid()
             };
-            dbContext.Add(version);
+            dbContext.Add(newVersion);
+
             Parallel.ForEach(
                 dto.Files,
                 f =>
@@ -187,16 +188,17 @@ namespace LatexRendererAPI.Controllers
                         Type = f.Type,
                         Path = f.Path,
                         Name = f.Name,
-                        VersionId = version.Id
+                        VersionId = newVersion.Id
                     };
                     dbContext.Files.AddAsync(newFile);
                 }
             );
-            var mainFile = dbContext.Files.First(f =>
-                f.Path == dto.MainFilePath && f.VersionId == version.Id
-            );
+
+            var mainFile = dbContext
+                .Files.Where(f => f.Path == dto.MainFilePath && f.VersionId == newVersion.Id)
+                .FirstOrDefault();
             if (mainFile != null)
-                version.MainFileId = mainFile.Id;
+                newVersion.MainFileId = mainFile.Id;
             dbContext.SaveChanges();
             return Ok();
         }
@@ -240,6 +242,7 @@ namespace LatexRendererAPI.Controllers
                     }),
                     version.IsMainVersion,
                     p.Versions.First(p => p.IsMainVersion == true).MainFileId,
+                    version.Description,
                     Role = p.UserProjects.First(v => v.EditorId == Guid.Parse(userId)).Role ?? null,
                     userId,
                     TotalStar = p.StarProjects.Count(),
