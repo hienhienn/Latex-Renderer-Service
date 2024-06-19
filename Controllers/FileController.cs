@@ -114,6 +114,21 @@ namespace LatexRendererAPI.Controllers
             return Ok();
         }
 
+        [HttpGet]
+        [Route("downloadLog/compile")]
+        public IActionResult DownloadLog([FromQuery] string code, [FromQuery] string path)
+        {
+            var filePath = fileService.ParseFilePath(path, code);
+            if(!fileService.CheckExists(filePath))
+            {
+                return NotFound();
+            }
+                    
+            byte[] fileBytes = System.IO.File.ReadAllBytes(filePath);
+
+            return File(fileBytes, "text/x-log", filePath.Split('/').Last());
+        }
+
         [HttpPost]
         [Route("uploadFile")]
         [Authorize]
@@ -324,6 +339,12 @@ namespace LatexRendererAPI.Controllers
 
             version.ModifiedTime = DateTime.Now;
             version.EditorId = Guid.Parse(userId);
+
+            if(file.Type == "tex")
+            {
+                var count = dbContext.Files.Where(f => f.Content == file.Content && f.Type == "tex").Count();
+                if(count == 1) fileService.DeleteFileRelativePath(file.Content);
+            }
 
             dbContext.Files.Remove(file);
             dbContext.SaveChanges();

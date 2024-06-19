@@ -9,8 +9,10 @@ namespace LatexRendererAPI.Services
         public void DeleteFileRelativePath(string path);
         public void DeleteFile(string path);
         public string ParseFolderPath(string filePath, string code, string typePath);
+        public string ParseFilePath(string filePath, string code);
         public void CopyFile(string source, string des);
         public bool CheckExists(string file);
+        public void CopyDirectory(string sourceDir, string destinationDir);
     }
 
     public class FileService : IFileService
@@ -89,6 +91,14 @@ namespace LatexRendererAPI.Services
                 return Path.Combine(final);
         }
 
+        public string ParseFilePath(string filePath, string code)
+        {
+            var pathSplit = filePath.Split('/');
+            string[] pathStr = [localPath, code];
+            string[] final = pathStr.Concat(pathSplit).ToArray();
+            return Path.Combine(final);
+        }
+
         public void CopyFile(string source, string des)
         {
             File.Copy(source, des);
@@ -97,6 +107,31 @@ namespace LatexRendererAPI.Services
         public bool CheckExists(string file)
         {
             return File.Exists(file);
+        }
+
+        public void CopyDirectory(string sourceDir, string destinationDir)
+        {
+            string[] excludeExtensions = new string[] { ".aux", ".log", ".out", ".pdf", ".run.xml", "-blx.bib" };
+            foreach (
+                var dirPath in Directory.GetDirectories(sourceDir, "*", SearchOption.AllDirectories)
+            )
+            {
+                Console.WriteLine($"1 {dirPath.Replace(sourceDir, destinationDir)}");
+                Directory.CreateDirectory(dirPath.Replace(sourceDir, destinationDir));
+            }
+
+            foreach (
+                var newPath in Directory.GetFiles(sourceDir, "*.*", SearchOption.AllDirectories)
+            )
+            {
+                if (
+                    Array.Exists(excludeExtensions, extension => newPath.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+                )
+                {
+                    continue;
+                }
+                    File.Copy(newPath, newPath.Replace(sourceDir, destinationDir), true);
+            }
         }
     }
 }

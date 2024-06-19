@@ -83,7 +83,7 @@ namespace LatexRendererAPI.Controllers
                     {
                         if (sw.BaseStream.CanWrite)
                         {
-                            sw.WriteLine();
+                            sw.WriteLine("R");
                         }
                     }
                 }
@@ -93,7 +93,7 @@ namespace LatexRendererAPI.Controllers
             {
                 return Ok(new { CompileSuccess = true, Path = dto.CompilePath });
             }
-            return Ok(new { CompileSuccess = false });
+            return Ok(new { CompileSuccess = false, Path = dto.CompilePath });
         }
 
         [Authorize]
@@ -149,16 +149,25 @@ namespace LatexRendererAPI.Controllers
                 }
             );
 
-            var zipFolderPath = fileService.ParseFolderPath(
+            var oldFolderPath = fileService.ParseFolderPath(
                 dto.FolderPath ?? "",
                 dto.Code,
                 "folder"
             );
-            var zipFilePath = Path.Combine(
-                Directory.GetCurrentDirectory(),
-                config["AssetPath"] ?? "",
-                $"{dto.FolderName}-{DateTime.Now.Ticks}.zip"
+
+            var zipFolderPath = Path.Combine(
+                [
+                    Directory.GetCurrentDirectory(),
+                    config["AssetPath"] ?? "",
+                    dto.Code,
+                    config["zipPath"] ?? "",
+                    $"{dto.FolderName}-{DateTime.Now.Ticks}"
+                ]
             );
+
+            var zipFilePath = zipFolderPath + ".zip";
+            Directory.CreateDirectory(zipFolderPath);
+            fileService.CopyDirectory(oldFolderPath, zipFolderPath);
             ZipFile.CreateFromDirectory(zipFolderPath, zipFilePath);
             byte[] fileBytes = System.IO.File.ReadAllBytes(zipFilePath);
             return File(fileBytes, "application/zip", dto.FolderName);
@@ -215,17 +224,20 @@ namespace LatexRendererAPI.Controllers
             if (version == null)
                 return NotFound();
             var currentUser = HttpContext.User;
-            var userId = HttpContext.User.Identity.IsAuthenticated ? User.Claims.First(claim => claim.Type == "UserId").Value : new Guid().ToString();
+            var userId = HttpContext.User.Identity.IsAuthenticated
+                ? User.Claims.First(claim => claim.Type == "UserId").Value
+                : new Guid().ToString();
 
-            var project = dbContext.Projects.Include(p => p.UserProjects).First(p => p.Id == version.ProjectId);
+            var project = dbContext
+                .Projects.Include(p => p.UserProjects)
+                .First(p => p.Id == version.ProjectId);
             if (
-                !project.IsPublic &&
-                project.UserProjects.FirstOrDefault(up => up.EditorId == Guid.Parse(userId)) == null
+                !project.IsPublic
+                && project.UserProjects.FirstOrDefault(up => up.EditorId == Guid.Parse(userId))
+                    == null
             )
             {
-                return Ok(new {
-                    IsPublic = false,
-                });
+                return Ok(new { IsPublic = false, });
             }
 
             var res = dbContext
@@ -234,10 +246,10 @@ namespace LatexRendererAPI.Controllers
                 {
                     p.Name,
                     p.Id,
-                    Versions = p.Versions
-                    .OrderByDescending(v => v.IsMainVersion)
-                    .ThenByDescending(v => v.ModifiedTime)
-                    .Select(v => new
+                    Versions = p
+                        .Versions.OrderByDescending(v => v.IsMainVersion)
+                        .ThenByDescending(v => v.ModifiedTime)
+                        .Select(v => new
                         {
                             v.Editor.Fullname,
                             v.Editor.Username,
@@ -245,8 +257,7 @@ namespace LatexRendererAPI.Controllers
                             v.ModifiedTime,
                             v.Description,
                             v.Id
-                        })
-                    ,
+                        }),
                     p.IsPublic,
                     p.MainVersionId,
                     UserProjects = p.UserProjects.Select(up => new
@@ -260,14 +271,17 @@ namespace LatexRendererAPI.Controllers
                     version.IsMainVersion,
                     version.MainFileId,
                     version.Description,
-                    Role = p.UserProjects.FirstOrDefault(v => v.EditorId == Guid.Parse(userId)).Role ?? null,
+                    Role = p.UserProjects.FirstOrDefault(v => v.EditorId == Guid.Parse(userId)).Role
+                        ?? null,
                     userId,
                     TotalStar = p.StarProjects.Count(),
-                    Starred = p.StarProjects.FirstOrDefault(sp => sp.EditorId == Guid.Parse(userId)) != null
+                    Starred = p.StarProjects.FirstOrDefault(sp => sp.EditorId == Guid.Parse(userId))
+                    != null
                         ? true
                         : false,
-                    StarredId = p.StarProjects.FirstOrDefault(sp => sp.EditorId == Guid.Parse(userId))
-                    != null
+                    StarredId = p.StarProjects.FirstOrDefault(sp =>
+                        sp.EditorId == Guid.Parse(userId)
+                    ) != null
                         ? p.StarProjects.FirstOrDefault(sp => sp.EditorId == Guid.Parse(userId)).Id
                         : new Guid()
                 })
