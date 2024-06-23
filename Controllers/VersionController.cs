@@ -304,5 +304,20 @@ namespace LatexRendererAPI.Controllers
             dbContext.SaveChanges();
             return Ok(dto);
         }
+
+        [HttpDelete]
+        [Authorize]
+        [Route("{id:Guid}")]
+        public IActionResult DeleteVersion([FromRoute] Guid id)
+        {
+            var version = dbContext.Versions.Find(id);
+            if (version == null)
+                return NotFound();
+            if (version.IsMainVersion)
+                return BadRequest();
+            dbContext.Versions.Remove(version);
+            dbContext.SaveChanges();
+            return Ok(new { id });
+        }
     }
 }

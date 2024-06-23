@@ -340,12 +340,6 @@ namespace LatexRendererAPI.Controllers
             version.ModifiedTime = DateTime.Now;
             version.EditorId = Guid.Parse(userId);
 
-            if(file.Type == "tex")
-            {
-                var count = dbContext.Files.Where(f => f.Content == file.Content && f.Type == "tex").Count();
-                if(count == 1) fileService.DeleteFileRelativePath(file.Content);
-            }
-
             dbContext.Files.Remove(file);
             dbContext.SaveChanges();
 

@@ -99,7 +99,10 @@ app.UseCors(MyAllowSpecificOrigins);
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseWebSockets();
-// app.UseMiddleware<WebSocketMiddleware>();
+
+Directory.CreateDirectory(
+    Path.Combine(builder.Environment.ContentRootPath, builder.Configuration["AssetPath"] ?? "")
+);
 app.UseStaticFiles(
     new StaticFileOptions
     {
@@ -113,22 +116,24 @@ app.UseStaticFiles(
     }
 );
 
-app.Use(async (context, next) =>
+app.Use(
+    async (context, next) =>
+    {
+        if (context.Request.Path.StartsWithSegments("/ws", out var remainingPath))
         {
-            if (context.Request.Path.StartsWithSegments("/ws", out var remainingPath))
+            var segments = remainingPath.Value.Trim('/').Split('/');
+            if (segments.Length == 2)
             {
-                var segments = remainingPath.Value.Trim('/').Split('/');
-                if (segments.Length == 2)
-                {
-                    var projectId = segments[0];
-                    var userId = segments[1];
-                    await webSocketHandler.HandleWebSocketAsync(context, projectId, userId);
-                    return;
-                }
+                var projectId = segments[0];
+                var userId = segments[1];
+                await webSocketHandler.HandleWebSocketAsync(context, projectId, userId);
+                return;
             }
+        }
 
-            await next();
-        });
+        await next();
+    }
+);
 
 app.MapControllers();
 app.Run();

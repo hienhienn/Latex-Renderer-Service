@@ -36,39 +36,38 @@ namespace LatexRendererAPI.Controllers
         {
             if (ModelState.IsValid)
             {
-                var projects = dbContext.Projects.AsQueryable();
+                var projects = dbContext
+                    .Projects.Include(p => p.UserProjects)
+                    .Include(p => p.StarProjects)
+                    .Include(p => p.Versions)
+                    .AsQueryable();
 
                 var currentUser = HttpContext.User;
-                var userId = User.Claims.First(claim => claim.Type == "UserId").Value;
+                var userId = Guid.Parse(User.Claims.First(claim => claim.Type == "UserId").Value);
 
-                if (query.Category == "all")
-                    projects = projects
-                        .Include(p => p.UserProjects)
-                        .Where(p =>
-                            p.UserProjects.First(up => up.EditorId == Guid.Parse(userId)) != null
+                switch (query.Category)
+                {
+                    case "all":
+                        projects = projects.Where(p =>
+                            p.UserProjects.Any(up => up.EditorId == userId)
                         );
-                else if (query.Category == "yours")
-                    projects = projects
-                        .Include(p => p.UserProjects)
-                        .Where(p =>
-                            p.UserProjects.First(up =>
-                                up.EditorId == Guid.Parse(userId) && up.Role == "owner"
-                            ) != null
+                        break;
+                    case "yours":
+                        projects = projects.Where(p =>
+                            p.UserProjects.Any(up => up.EditorId == userId && up.Role == "owner")
                         );
-                else if (query.Category == "shared")
-                    projects = projects
-                        .Include(p => p.UserProjects)
-                        .Where(p =>
-                            p.UserProjects.First(up =>
-                                up.EditorId == Guid.Parse(userId) && up.Role != "owner"
-                            ) != null
+                        break;
+                    case "shared":
+                        projects = projects.Where(p =>
+                            p.UserProjects.Any(up => up.EditorId == userId && up.Role != "owner")
                         );
-                else if (query.Category == "starred")
-                    projects = projects
-                        .Include(p => p.StarProjects)
-                        .Where(p =>
-                            p.StarProjects.First(up => up.EditorId == Guid.Parse(userId)) != null
+                        break;
+                    case "starred":
+                        projects = projects.Where(p =>
+                            p.StarProjects.Any(up => up.EditorId == userId)
                         );
+                        break;
+                }
 
                 if (!string.IsNullOrWhiteSpace(query.Keyword))
                     projects = projects.Where(e => e.Name.Contains(query.Keyword));
@@ -77,23 +76,23 @@ namespace LatexRendererAPI.Controllers
                 {
                     if (query.FieldSort == "name")
                         if (query.Sort.Equals("ascend"))
-                            projects = projects.OrderBy(x => x.Name);
+                            projects = projects.Distinct().OrderBy(x => x.Name);
                         else
-                            projects = projects.OrderByDescending(x => x.Name);
+                            projects = projects.Distinct().OrderByDescending(x => x.Name);
                     else if (query.FieldSort == "modifiedTime")
                     {
                         if (query.Sort.Equals("ascend"))
-                            projects = projects
-                                .Where(p => p.Versions != null)
-                                .Include(p => p.Versions)
-                                .OrderBy(p => p.Versions.First(x => x.IsMainVersion).ModifiedTime);
+                            projects = projects.Distinct().OrderBy(p =>
+                                p.Versions.Where(v => v.IsMainVersion)
+                                    .Select(v => v.ModifiedTime)
+                                    .FirstOrDefault()
+                            );
                         else
-                            projects = projects
-                                .Where(p => p.Versions != null)
-                                .Include(p => p.Versions)
-                                .OrderByDescending(p =>
-                                    p.Versions.First(x => x.IsMainVersion).ModifiedTime
-                                );
+                            projects = projects.Distinct().OrderByDescending(p =>
+                                p.Versions.Where(v => v.IsMainVersion)
+                                    .Select(v => v.ModifiedTime)
+                                    .FirstOrDefault()
+                            );
                     }
                 }
                 var skipResults = (query.Page - 1) * query.PageSize;
@@ -102,36 +101,33 @@ namespace LatexRendererAPI.Controllers
                     {
                         list = projects
                             .Skip(skipResults)
-                            .Take(query.PageSize)
-                            .Include(o => o.Versions)
-                            .Include(o => o.UserProjects)
-                            .Include(o => o.StarProjects)
+                            .Take(query.PageSize)   
                             .Select(p => new
                             {
                                 p.Id,
                                 p.Name,
                                 p.IsPublic,
-                                p.MainVersionId,
                                 p.Versions,
+                                MainVersion = p
+                                    .Versions.Where(v => v.IsMainVersion)
+                                    .AsQueryable()
+                                    .Include(v => v.Editor)
+                                    .Select(v => new
+                                    {
+                                        v.Id,
+                                        v.ModifiedTime,
+                                        v.Editor
+                                    })
+                                    .First(),
                                 UserProjects = p.UserProjects.Select(up => new
                                 {
                                     up.Editor.Fullname,
                                     up.Editor.Username,
-                                    up.EditorId,
-                                    up.Role,
                                 }),
-                                p.Versions.First(x => x.IsMainVersion).ModifiedTime,
-                                p.UserProjects.First(up => up.EditorId == Guid.Parse(userId)).Role,
-                                Starred = p.StarProjects.First(up =>
-                                    up.EditorId == Guid.Parse(userId)
-                                ) == null
+                                p.UserProjects.First(up => up.EditorId == userId).Role,
+                                Starred = p.StarProjects.Any(up => up.EditorId == userId)
                                     ? false
                                     : true,
-                                Editor = new
-                                {
-                                    p.Versions.First(x => x.IsMainVersion).Editor.Fullname,
-                                    p.Versions.First(x => x.IsMainVersion).Editor.Username
-                                }
                             })
                             .ToList(),
                         total = projects.Count(),
@@ -206,13 +202,11 @@ namespace LatexRendererAPI.Controllers
                 return NotFound();
             var mainCopyFile = dbContext.Files.Find(copyVersion.MainFileId);
 
-            var project = new ProjectModel { 
-                Name = dto.Name, 
-                MainVersionId = new Guid()
-            };
+            var project = new ProjectModel { Name = dto.Name, MainVersionId = new Guid() };
             dbContext.Add(project);
 
-            var userProject = new UserProject {
+            var userProject = new UserProject
+            {
                 EditorId = Guid.Parse(userId),
                 ProjectId = project.Id,
                 Role = "owner"
@@ -248,7 +242,7 @@ namespace LatexRendererAPI.Controllers
                     };
                     dbContext.Files.Add(newFile);
 
-                    if(mainCopyFile != null && newFile.Path == mainCopyFile.Path)
+                    if (mainCopyFile != null && newFile.Path == mainCopyFile.Path)
                     {
                         version.MainFileId = newFile.Id;
                     }
