@@ -84,6 +84,7 @@ namespace LatexRendererAPI.Controllers
                         if (sw.BaseStream.CanWrite)
                         {
                             sw.WriteLine("R");
+                            sw.WriteLine("\\nonstopmode");
                         }
                     }
                 }

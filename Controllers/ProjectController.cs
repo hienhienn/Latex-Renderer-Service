@@ -126,8 +126,8 @@ namespace LatexRendererAPI.Controllers
                                 }),
                                 p.UserProjects.First(up => up.EditorId == userId).Role,
                                 Starred = p.StarProjects.Any(up => up.EditorId == userId)
-                                    ? false
-                                    : true,
+                                    ? true
+                                    : false,
                             })
                             .ToList(),
                         total = projects.Count(),

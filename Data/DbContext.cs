@@ -25,7 +25,7 @@ namespace LatexRendererAPI.Data
         {
             var deletedFileEntities = ChangeTracker
                 .Entries<FileModel>()
-                .Where(e => e.State == EntityState.Deleted)
+                .Where(e => e.State == EntityState.Deleted && e.Entity.Type == "img")
                 .ToList();
 
             foreach (var entity in deletedFileEntities)
